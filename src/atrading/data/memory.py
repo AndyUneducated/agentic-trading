@@ -16,12 +16,6 @@ class InMemoryDataSource:
     def __init__(self, bars: Iterable[Bar]) -> None:
         self._bars = sorted(bars, key=lambda b: (b.symbol, b.ts))
 
-    def get_bars(
-        self, symbols: list[str], start: datetime, end: datetime, freq: str
-    ) -> list[Bar]:
+    def get_bars(self, symbols: list[str], start: datetime, end: datetime, freq: str) -> list[Bar]:
         wanted = set(symbols)
-        return [
-            bar
-            for bar in self._bars
-            if bar.symbol in wanted and start <= bar.ts <= end
-        ]
+        return [bar for bar in self._bars if bar.symbol in wanted and start <= bar.ts <= end]
