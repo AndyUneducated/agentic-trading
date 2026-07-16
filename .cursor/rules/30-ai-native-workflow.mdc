@@ -1,0 +1,28 @@
+---
+description: AI-Native 工作流：规格先行、评测驱动、实验与决策留痕
+alwaysApply: true
+---
+
+# AI-Native 工作流
+
+## 规格先行（Spec-first）
+
+实现前先确认 `docs/specs/` 有对应规格；缺失就先补规格并与人类对齐。规格是契约，改动需同步更新受影响的评测与实验。
+
+## 评测驱动（Eval-driven）
+
+- 评测/回测是本项目的"测试套件"。任何策略/信号/prompt 改动必须能被评测判定好坏。
+- **无评测不合并、不下结论。**
+- 两层评测：信号质量（M4）与策略盈利（M3/M6）分开衡量。
+
+## 单变量实验
+
+一次只改一个变量，结果写入 `docs/experiments/`（假设→设置→结果→结论），始终对照基准。
+
+## 决策留痕
+
+有长期影响的技术/架构选择写入 `docs/decisions/` 的 ADR。
+
+## Git
+
+小而聚焦的提交，遵循 Conventional Commits（`feat/fix/docs/refactor/test/chore/exp`）。分支：`feat/*`、`fix/*`、`docs/*`、`exp/*`。
