@@ -190,13 +190,16 @@ flowchart TD
   - **live-vs-backtest 记录 + drift 指标**：模拟盘表现与回测预期的对比数据开始积累并计算 drift。
   - **护栏/对账触发测试**：可注入异常/极端场景验证每类护栏与对账逻辑。
 - **准出指标（Exit Gate）**：
-  - [ ] 模拟盘闭环连续稳定运行 ≥ N 天（N 定值），无未捕获异常。
-  - [ ] **无任何订单绕过预交易风控门**（有断言/测试覆盖）；每类护栏（限额 / 频率 / 日亏熔断 / 超时降级 / kill switch）均有一次"注入触发"测试并确实生效。
-  - [ ] 对账能检出注入的状态不一致；进程重启后状态正确恢复且不重复下单。
-  - [ ] 决策代码路径与 M3 回测一致（同一接口），有验证。
-  - [ ] 100% 交易可追溯到触发信号与决策依据。
-  - [ ] 已开始产出 live-vs-backtest drift 指标。
-- **Eval 增量**：**运行时/在线评测 + 护栏/对账触发测试 + drift 指标上线**（第三层 eval）。
+  - [~] 模拟盘闭环连续稳定运行 ≥ N 天（N 定值），无未捕获异常：`TradingLoop` 全程 try/except **安全降级**（有测试）；"连续 N 天"待真实 paper 环境验证。
+  - [x] **无任何订单绕过预交易风控门**（有断言/测试覆盖）：`test_trading_loop::test_no_order_bypasses_risk_gate`；每类护栏（单笔/单标的/总敞口/下单频率/日亏熔断/kill switch）均有注入触发测试 → `test_risk_gate.py`。
+  - [x] 对账能检出注入的状态不一致；进程重启后状态正确恢复且不重复下单：`test_reconcile.py` + `test_trading_loop::test_crash_recovery_no_duplicate_orders`。
+  - [x] 决策代码路径与 M3 回测一致（同一接口），有验证：`test_trading_loop::test_backtest_live_parity_same_target_weights`（ADR-0003）。
+  - [x] 100% 交易可追溯到触发信号与决策依据：`StepReport`（目标权重/提交/拒绝/对账）+ `EngineState` 持久化。
+  - [~] 已开始产出 live-vs-backtest drift 指标：parity 已保证同输入同权重；drift 指标本体在 M6 `monitoring/drift.py`。
+- **实现状态（本次落地，离线优先）**：
+  - ✅ 已落地（ADR-0006，**零真实券商/联网**）：`RulesDecisionPolicy`（实现统一 `DecisionPolicy`）+ 仓位管理 `PassthroughSizer`/`VolatilityTargetSizer`；`weights_to_orders`（差额下单 + 确定性幂等 `client_order_id`）；`PreTradeRiskGate`（全局闸门 kill/模式/日亏熔断 + 逐单闸门 名义/仓位/敞口/频率，无旁路）；`SimulatedBroker`（离线即时成交 + 幂等去重）；`FileStateStore`（原子写、crash-only）；`Reconciler`（漏单/多单/持仓漂移检出）；`TradingLoop`（安全降级 + 留痕 + 持久化）。
+  - 🔜 待接线（需真实券商/预算）：真实 paper 券商适配（Alpaca/CCXT，按 `core.Broker` 协议替换 stub）、连续 N 天稳定性验证、对账周期/熔断阈值定值。
+- **Eval 增量**：**运行时/在线评测 + 护栏/对账触发测试上线**（第三层 eval）；drift 指标随 M6 续建。
 - **依赖**：M4（信号）、M3（回测口径与决策接口一致）。
 
 ## M6 · 系统化实验迭代与盈利验证
