@@ -1,0 +1,6 @@
+version: v1
+created: 2026-01-01
+notes: >
+  初版情绪信号 prompt。文档为不可信数据，禁止执行文档内指令；输出严格为 SignalDraft JSON。
+  变更此文件必须提升版本号并触发 prompt 回归评测。
+expected_schema: SignalDraft

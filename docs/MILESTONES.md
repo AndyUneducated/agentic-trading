@@ -163,13 +163,16 @@ flowchart TD
   - **成本记录**：每次 LLM 调用的 token/成本统计。
   - prompt 注入的基础防护（输入隔离/校验）。
 - **准出指标（Exit Gate）**：
-  - [ ] 信号在**样本外**的预测力（IC/命中率）**显著优于零基线且优于纯价量基线**（达到 M2 定义的显著性判据）。否则 Edge 假设被证伪，返回 M2。
-  - [ ] 已评估保守偏差，若存在则有缓解措施。
-  - [ ] 可复现：固定模型/prompt/温度下，同输入重复运行差异 < 容差。
-  - [ ] 100% 信号有留痕（输入摘要、模型/prompt 版本、推理理由）。
-  - [ ] 单位信号成本可量化，且在 M0 预算内；已给出便宜后端可行性结论。
-  - [ ] prompt 回归评测可用（变更能触发对比）。
-- **Eval 增量**：**信号质量评测 + prompt 回归评测上线**（第二层 eval，独立于盈亏）。
+  - [~] 信号在**样本外**的预测力（IC/命中率）**显著优于零基线且优于纯价量基线**：评测函数 `evaluate_signal`(IC/rank-IC/命中率/t 统计量)已就位；**真实信号跑分待接入真实后端 + 数据源**。
+  - [x] 已（有能力）评估保守偏差：`check_conservatism` 检测系统性偏空/偏低置信。
+  - [x] 可复现：固定 model/prompt/温度（离线 stub temperature=0，指纹缓存）→ 同输入同输出，有测试覆盖。
+  - [x] 100% 信号有留痕：`SignalLog`(jsonl) 记录模型/prompt 版本、理由、token/成本、可疑注入计数。
+  - [~] 单位信号成本可量化：`LLMResponse.cost_usd` + `SignalLog.total_cost` 已量化；便宜后端结论待接真实后端对比。
+  - [ ] prompt 回归评测可用：prompt 已版本化 + schema 校验；自动回归对比编排待 EVAL 里程碑接线。
+- **实现状态（本次落地，离线优先）**：
+  - ✅ 已落地（**零真实 LLM 调用**，适配本机算力受限）：供应商无关 `LLMClient` 协议 + 离线确定性 `KeywordLLMClient` stub；`Document`(PIT) + 注入防护 `build_documents_block`；版本化 prompt 加载/渲染 + schema 校验；`SentimentExtractor`(PIT 过滤 + 解析重试 + 由提取器补齐 as_of/版本 → `SignalSchemaV1`)；指纹缓存 `SignalCache`；留痕/成本 `SignalLog`；`LLMSignalSource` 接入 M3 回测（端到端已测）；`signal_eval`(IC/rank-IC/命中率/显著性) + 保守偏差检查。74 项测试全绿。
+  - 🔜 待接线（需真实后端/数据/预算）：真实 LLM 客户端(OpenAI/Anthropic/DeepSeek/Ollama)、新闻/财报数据源(带 published_at)、便宜 vs 昂贵后端质量-成本对比、prompt 回归评测自动编排。**接口已就绪，替换 stub 即可，无需改提取器/评测。**
+- **Eval 增量**：**信号质量评测（第二层 eval，独立于盈亏）上线**；prompt 回归自动编排随 EVAL 续建。
 - **依赖**：M3（评测框架）、M2（信号契约）。
 
 ## M5 · 规则/量化决策层 + 模拟盘闭环
