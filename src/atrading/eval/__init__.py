@@ -3,6 +3,7 @@ from atrading.eval.baselines import (
     BuyHoldBaseline,
     PriceOnlyBaseline,
     ZeroBaseline,
+    oss_baseline_from_equity,
     run_baselines,
 )
 from atrading.eval.metrics import (
@@ -60,6 +61,7 @@ __all__ = [
     "excess_return",
     "expected_max_sharpe",
     "max_drawdown",
+    "oss_baseline_from_equity",
     "pbo",
     "purged_kfold",
     "render_report",
