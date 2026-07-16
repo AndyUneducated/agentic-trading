@@ -1,0 +1,11 @@
+# 模拟盘（paper）运行时配置占位。
+# 运行模式与密钥来自 .env（见 .env.example）；此文件承载非密钥的运行参数。
+# 策略配置（标的池/频率/风控限额）将在 M2/M5 引入 configs/strategies/*.yaml。
+
+runtime:
+  trading_mode: paper        # 与 .env 一致，务必保持 paper
+  kill_switch: false
+
+logging:
+  level: INFO
+  format: json

@@ -1,0 +1,57 @@
+[project]
+name = "atrading"
+version = "0.0.0"
+description = "Agentic trading system (hybrid: LLM signal layer + rules/quant decision & execution)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2",
+    "pyarrow>=15",
+    "pydantic>=2",
+    "pydantic-settings>=2",
+    "pyyaml>=6",
+    "structlog>=24",
+]
+
+[project.optional-dependencies]
+data = ["yfinance>=0.2"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "pytest>=8",
+    "types-pyyaml>=6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atrading"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*", "yfinance", "yfinance.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-markers"
+testpaths = ["tests"]
+markers = [
+    "golden: 已知答案回归用例",
+    "slow: 慢测试",
+]
