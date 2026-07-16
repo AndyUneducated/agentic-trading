@@ -15,3 +15,4 @@
 | [0003](0003-backtest-live-parity.md) | 回测-实盘一致（统一决策接口） | Accepted |
 | [0004](0004-tech-stack.md) | 技术栈（Python/uv/Pydantic/…） | Accepted |
 | [0005](0005-evaluation-and-anti-overfitting.md) | 评测框架与防过拟合门禁（强制切分/HoldoutGuard/DSR/PBO/记分卡） | Accepted |
+| [0006](0006-runtime-execution-and-safety.md) | 运行时执行架构与安全护栏（预交易风控门/模拟 broker/文件式状态/对账/安全降级） | Accepted |
