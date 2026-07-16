@@ -1,0 +1,24 @@
+# 首个策略配置（草案）。标的池为少量高流动性美股/ETF/加密。
+# 数值阈值（成功指标）不在此维护，统一引用 PROJECT_CHARTER。
+name: mvp_hybrid
+universe:
+  - SPY
+  - QQQ
+  - AAPL
+  - MSFT
+  - NVDA
+  - BTC-USD
+  - ETH-USD
+decision_freq: daily
+allow_short: false
+max_gross_exposure: 1.0
+max_weight_per_name: 0.2
+benchmarks:
+  - SPY
+  - BTC-USD
+  - price_only
+primary_metrics:
+  - excess_return
+  - max_drawdown
+  - sharpe
+  - dsr
