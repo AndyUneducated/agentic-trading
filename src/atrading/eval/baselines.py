@@ -19,7 +19,9 @@ from atrading.backtest import (
     PriceOnlyMomentumPolicy,
     SingleAssetBuyHoldPolicy,
 )
+from atrading.backtest.runner import EquityPoint
 from atrading.core.interfaces import DataSource
+from atrading.core.manifest import RunManifest
 from atrading.core.strategy_config import StrategyConfig
 
 
@@ -125,6 +127,32 @@ class BuyHoldBaseline:
             initial_cash=initial_cash,
         )
         return runner.run(start, end)
+
+
+def oss_baseline_from_equity(
+    name: str,
+    timestamps: list[datetime],
+    equity: list[float],
+) -> BacktestResult:
+    """把开源框架（TradingAgents/ai-hedge-fund/FinRL）在同区间同标的的**产出权益曲线**
+    封装为 BacktestResult，作为"第三类基线"参与对照（M6 现实性校验）。
+
+    离线：不在运行时依赖开源框架，只消费其导出的权益序列（遵守混合红线：其 LLM 决策
+    不接我们的执行）。若要接入，把该框架跑出的 (ts, equity) 序列喂进来即可。
+    """
+    if len(timestamps) != len(equity):
+        msg = "timestamps 与 equity 长度必须一致"
+        raise ValueError(msg)
+    if not equity:
+        msg = "equity 不能为空"
+        raise ValueError(msg)
+    curve = [EquityPoint(ts=ts, equity=v) for ts, v in zip(timestamps, equity, strict=True)]
+    return BacktestResult(
+        manifest=RunManifest(seed=0, params={"oss_baseline": name}),
+        initial_cash=equity[0],
+        final_equity=equity[-1],
+        equity_curve=curve,
+    )
 
 
 def run_baselines(

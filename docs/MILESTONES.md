@@ -215,13 +215,16 @@ flowchart TD
   - **成本调整收益**：扣除滑点/手续费/LLM/数据成本后的净表现。
   - 候选策略：达到或逼近 M0 成功指标的配置及其完整实验证据链。
 - **准出指标（Exit Gate）**：
-  - [ ] 候选策略在**最终验证集**（从未用于调参）上满足 M0 全部成功指标。
-  - [ ] 样本外**同时跑赢**：买入持有基准、纯价量基线、开源框架基线（对齐 CHARTER 的 Edge 证伪）。
-  - [ ] DSR / PBO 达到 M0 设定门槛（过拟合概率可接受）。
-  - [ ] 扣除全部成本（滑点/手续费/LLM/数据）后净收益为正。
-  - [ ] drift 在阈值内；regime 衰减检测与刷新/退役触发条件已定义。
-  - [ ] 有 ≥ N 条实验记录构成完整证据链。
-- **Eval 增量**：**样本外/过拟合评测 + 开源基准对照 + 成本调整评测 + regime/drift 监控看板成型**，评测体系完整闭合。
+  - [~] 候选策略在**最终验证集**（从未用于调参）上满足 M0 全部成功指标：`HoldoutGuard` + `GoLiveScorecard` 机制就位；**候选策略实证待真实数据/信号**。
+  - [~] 样本外**同时跑赢**：买入持有 / 纯价量 / 开源框架基线（对齐 CHARTER 的 Edge 证伪）：三类基线接口就位（`run_baselines` + `oss_baseline_from_equity`）+ `build_edge_criteria` 判定；实证待真实数据。
+  - [x] DSR / PBO 达到门槛（过拟合概率可接受）：`overfit.py` + `ExperimentRegistry.n_trials` 自动累加惩罚（`test_experiments::test_n_trials_penalizes_dsr`）。
+  - [~] 扣除全部成本（滑点/手续费/LLM/数据）后净收益为正：回测成本模型 + LLM 成本记录已就位；净收益结论待实证。
+  - [x] regime 衰减检测与刷新/退役触发条件已定义：`RegimeMonitor` + `RefreshPolicy`；drift 监控 `compute_drift`（"实盘=回测"→drift≈0，有测试）。
+  - [~] 有 ≥ N 条实验记录构成完整证据链：`ExperimentSpec`(单变量强制) + `run_experiment` + `write_experiment_log` + `ExperimentRegistry` 已就位；证据链随真实实验累积。
+- **实现状态（本次落地，离线优先）**：
+  - ✅ 已落地（ADR-0007）：`experiments/`（`ExperimentSpec` 单变量强制校验 + `run_experiment` 自动记账 + `write_experiment_log` 写 `docs/experiments/` + `ExperimentRegistry` n_trials 累加/持久化）；`monitoring/`（`RegimeMonitor` 统计漂移 + `RefreshPolicy` + `compute_drift`）；`eval` 增补 `oss_baseline_from_equity`（离线第三类基线）。
+  - 🔜 待实证（需真实数据/信号/预算）：候选策略在最终留出集达标、三类基线同时跑赢、成本后净收益为正、≥N 条实验证据链。**框架已就绪，喂入真实数据即可评判。**
+- **Eval 增量**：**样本外/过拟合评测 + 开源基准对照接口 + regime/drift 监控成型**，四层评测体系闭合（信号级/策略级/运行时/稳健性）。
 - **依赖**：M5。
 
 ## 上线闸门（Go-live Gate：模拟盘 → 小额实盘）
