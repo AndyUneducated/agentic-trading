@@ -1,0 +1,22 @@
+---
+description: Agentic Trading 项目的核心上下文与架构红线
+alwaysApply: true
+---
+
+# 项目上下文
+
+混合架构的 Agentic 交易系统：**LLM 提取结构化信号，规则/量化层负责决策与执行**。目标是严格验证下的可持续盈利。标的：美股/ETF/加密。资金路径：回测 → 模拟盘 → 小额实盘。
+
+## 两层代理
+
+- **构建期代理**（你，写代码）：受代码审查、测试、评测门槛约束。
+- **运行时代理**（系统内的 LLM）：只输出信号，**绝不下单**。
+
+## 架构红线
+
+- 运行时 LLM 不得直接产生交易动作/订单。决策与下单只在确定性的规则/量化层。
+- 详细定位见 `docs/decisions/0001-llm-positioning-hybrid.md`。
+
+## 上下文入口
+
+开始任务前先读 `AGENTS.md`、`docs/PROJECT_CHARTER.md`、`docs/MILESTONES.md`，以及相关 `docs/specs/`。

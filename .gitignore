@@ -1,0 +1,52 @@
+# === Secrets / credentials (NEVER commit) ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# === Data (large / point-in-time snapshots kept out of git) ===
+data/
+datasets/
+*.parquet
+*.feather
+*.csv
+*.h5
+!docs/**/*.csv
+
+# === Backtest / experiment artifacts ===
+artifacts/
+runs/
+results/
+reports/
+mlruns/
+*.pkl
+*.joblib
+
+# === Python ===
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# === Node (if any tooling/UI added later) ===
+node_modules/
+dist/
+build/
+
+# === Logs ===
+*.log
+logs/
+
+# === OS / editor ===
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
