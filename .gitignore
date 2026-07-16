@@ -15,6 +15,9 @@ datasets/
 *.csv
 *.h5
 !docs/**/*.csv
+# 源码包 src/atrading/data 是代码，不是数据快照目录
+!src/atrading/data/
+!src/atrading/data/**
 
 # === Backtest / experiment artifacts ===
 artifacts/
