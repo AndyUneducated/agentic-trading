@@ -64,11 +64,7 @@ class PITStore:
             if not path.exists():
                 continue
             frame = pd.read_parquet(path)
-            mask = (
-                (frame["ts"] >= start_ts)
-                & (frame["ts"] <= end_ts)
-                & (frame["ts"] <= as_of_ts)
-            )
+            mask = (frame["ts"] >= start_ts) & (frame["ts"] <= end_ts) & (frame["ts"] <= as_of_ts)
             for row in frame[mask].itertuples(index=False):
                 out.append(
                     Bar(
