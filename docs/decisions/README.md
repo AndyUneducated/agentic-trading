@@ -14,3 +14,4 @@
 | [0002](0002-leverage-oss-vs-build.md) | 复用成熟开源引擎 vs 自建（选 B：复用） | Accepted |
 | [0003](0003-backtest-live-parity.md) | 回测-实盘一致（统一决策接口） | Accepted |
 | [0004](0004-tech-stack.md) | 技术栈（Python/uv/Pydantic/…） | Accepted |
+| [0005](0005-evaluation-and-anti-overfitting.md) | 评测框架与防过拟合门禁（强制切分/HoldoutGuard/DSR/PBO/记分卡） | Accepted |

@@ -52,3 +52,35 @@ def sharpe(returns: Sequence[float], periods_per_year: int = 252, risk_free: flo
     if std == 0:
         return 0.0
     return (mean / std) * math.sqrt(periods_per_year)
+
+
+def sortino(returns: Sequence[float], periods_per_year: int = 252, risk_free: float = 0.0) -> float:
+    """年化 Sortino 比率：只惩罚下行波动。无下行样本时返回 0.0。"""
+    n = len(returns)
+    if n < 2:
+        return 0.0
+    per_period_rf = risk_free / periods_per_year
+    excess = [r - per_period_rf for r in returns]
+    mean = sum(excess) / n
+    downside = [min(0.0, r) for r in excess]
+    downside_var = sum(d**2 for d in downside) / n
+    downside_std = math.sqrt(downside_var)
+    if downside_std == 0:
+        return 0.0
+    return (mean / downside_std) * math.sqrt(periods_per_year)
+
+
+def turnover(weight_series: Sequence[dict[str, float]]) -> float:
+    """总换手：相邻期目标权重的 Σ|Δw| 之和（含首期建仓）。"""
+    total = 0.0
+    prev: dict[str, float] = {}
+    for weights in weight_series:
+        symbols = set(prev) | set(weights)
+        total += sum(abs(weights.get(s, 0.0) - prev.get(s, 0.0)) for s in symbols)
+        prev = dict(weights)
+    return total
+
+
+def excess_return(strategy_equity: Sequence[float], benchmark_equity: Sequence[float]) -> float:
+    """策略相对基准的总超额收益（total_return 之差）。"""
+    return total_return(strategy_equity) - total_return(benchmark_equity)

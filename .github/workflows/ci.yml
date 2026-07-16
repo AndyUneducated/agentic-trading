@@ -25,6 +25,21 @@ jobs:
       - name: Tests (pytest)
         run: uv run pytest -m "not slow"
 
+  eval-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync dependencies
+        run: uv sync --dev
+      - name: Golden known-answer regression
+        run: uv run pytest -m golden
+      - name: Eval smoke (baselines/scorecard/signal/overfit)
+        run: uv run pytest -k "baseline or scorecard or signal_eval or overfit or validation or metrics"
+
   secrets:
     runs-on: ubuntu-latest
     steps:

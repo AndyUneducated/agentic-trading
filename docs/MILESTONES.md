@@ -136,14 +136,14 @@ flowchart TD
   - **已知答案回归用例**：一个合成数据集，其正确回测结果已知，用于防未来函数/计算错误的回归测试。
 - **准出指标（Exit Gate）**：
   - [x] 可复现：同一输入两次运行，指标级结果 diff = 0（或 < 明确容差）。→ `test_backtest_runner::test_reproducible_same_inputs_same_output`
-  - [~] 多基准（SPY / BTC / 价量基线）**策略**可在框架内复现运行（`SingleAssetBuyHoldPolicy` / `PriceOnlyMomentumPolicy`）；**一键报告**待 EVAL 里程碑。
-  - [ ] walk-forward + purged/embargoed CV + 最终验证集隔离，均在框架中强制且有**测试/断言覆盖**。→ 归属 EVAL 里程碑。
-  - [~] 成本模型参数化且有默认值（`CostModel`，已覆盖单调性测试）；报告含 DSR / PBO 字段 → 待 EVAL。
+  - [x] 多基准（zero / price_only / buy_hold）**策略**在框架内复现运行 + **一键报告**：`eval/baselines.py::run_baselines` + `eval/report.py::render_report`。
+  - [x] walk-forward + purged/embargoed CV + 最终验证集隔离，均在框架中强制且有**测试/断言覆盖**：`eval/validation.py`（+ `test_validation.py`）。
+  - [x] 成本模型参数化且有默认值（`CostModel`，已覆盖单调性测试）；报告/记分卡含 DSR / PBO：`eval/overfit.py`。
   - [x] "已知答案"合成用例回测结果符合预期。→ `tests/golden/test_backtest_known_answer.py`
   - [x] 统一决策接口就位（同一决策函数可被回测与执行层调用）。→ `DecisionPolicy` 被 `BacktestRunner` 驱动。
 - **实现状态（本次落地）**：
-  - ✅ 已落地：PIT 数据存储 `PITStore`（parquet，`as_of` 过滤）+ `InMemoryDataSource` + 数据质量检查 `check_bars`；确定性参考回测引擎 `BacktestRunner`（无未来函数、成本建模、可复现）；统一 `DecisionPolicy` 接口 + 4 个参考/基线策略；基础指标 `total_return/max_drawdown/sharpe`；golden 已知答案回归 + PIT 断言测试。43 项测试全绿。
-  - 🔜 归属 EVAL 里程碑：walk-forward / purged CV / 最终验证集、DSR/PBO、一键多基准报告。
+  - ✅ 已落地：PIT 数据存储 `PITStore`（parquet，`as_of` 过滤）+ `InMemoryDataSource` + 数据质量检查 `check_bars`；确定性参考回测引擎 `BacktestRunner`（无未来函数、成本建模、可复现）；统一 `DecisionPolicy` 接口 + 参考/基线策略；基础指标；golden 已知答案回归 + PIT 断言测试。
+  - ✅ **EVAL 框架已落地**（ADR-0005）：`metrics`(Sortino/换手/超额) + `validation`(walk-forward/purged CV/HoldoutGuard) + `overfit`(DSR/PBO) + `baselines`(zero/price_only/buy_hold) + `scorecard`(CharterThresholds/EdgeCriteria/GoLiveScorecard) + `report`(markdown 一键) + CI `eval-smoke` 门禁。
   - 关于引擎复用（ADR-0002）：本次先落地**受控的确定性参考引擎**（藏在 `BacktestRunner`/`DecisionPolicy` 接口后），保留后续替换 vectorbt/bt 的接缝而不影响调用方与决策语义。
 - **Eval 增量**：**策略级评测框架（核心测试套件）上线**——此后任何策略改动都能被客观打分；防过拟合流程强制化（EVAL 里程碑续建）；确立回测-实盘一致基础。
 - **依赖**：M2。
