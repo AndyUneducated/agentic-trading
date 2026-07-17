@@ -13,12 +13,8 @@ def test_hash_chain_verifies() -> None:
     trail = AuditTrail()
     trail.append("signal", {"symbol": "AAPL", "sentiment": 0.8}, ts=_TS)
     trail.append("decision", {"weights": {"AAPL": 1.0}}, ts=_TS)
-    trail.record_order(
-        Order(symbol="AAPL", side="buy", qty=10, client_order_id="o1"), ts=_TS
-    )
-    trail.record_fill(
-        Fill(client_order_id="o1", symbol="AAPL", qty=10, price=100.0, ts=_TS)
-    )
+    trail.record_order(Order(symbol="AAPL", side="buy", qty=10, client_order_id="o1"), ts=_TS)
+    trail.record_fill(Fill(client_order_id="o1", symbol="AAPL", qty=10, price=100.0, ts=_TS))
     assert len(trail.records()) == 4
     assert trail.verify()
 

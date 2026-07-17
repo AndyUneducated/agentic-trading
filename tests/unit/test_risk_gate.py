@@ -83,6 +83,22 @@ def test_order_rate_limit() -> None:
     assert "频率" in decision.denied[0][1]
 
 
+def test_reducing_short_position_not_over_restricted() -> None:
+    # 回归：已持 500 股空头（名义 -50000），买入 100 股是**降风险**，不应被误拒。
+    prices = {"AAA": 100.0}
+    limits = _limits(
+        max_position_per_name=55_000.0,
+        max_gross_exposure=60_000.0,
+        max_notional_per_order=50_000.0,
+    )
+    gate = PreTradeRiskGate(limits, Settings(), prices)
+    decision = gate.check(
+        [_order("AAA", "buy", 100.0, "o1")], _portfolio(100_000.0, {"AAA": -500.0})
+    )
+    assert len(decision.approved) == 1
+    assert decision.denied == []
+
+
 def test_daily_loss_circuit_breaker() -> None:
     prices = {"AAA": 100.0}
     gate = PreTradeRiskGate(_limits(daily_loss_limit=0.05), Settings(), prices)

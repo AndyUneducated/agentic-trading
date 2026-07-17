@@ -39,9 +39,7 @@ def test_green_scorecard_but_no_human_approval_blocks() -> None:
 
 
 def test_kill_switch_blocks_even_if_approved() -> None:
-    gate = GoLiveGate(
-        scorecard=_green_scorecard(), human_approved=True, kill_switch_active=True
-    )
+    gate = GoLiveGate(scorecard=_green_scorecard(), human_approved=True, kill_switch_active=True)
     assert not gate.allowed
     assert any("KILL_SWITCH" in b for b in gate.blockers())
 

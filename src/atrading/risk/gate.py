@@ -56,12 +56,12 @@ class PreTradeRiskGate:
         # --- 逐单闸门 ---
         approved: list[Order] = []
         denied: list[tuple[Order, str]] = []
-        # 以当前持仓名义为基线，累加已放行订单对敞口的影响。
+        # 以当前持仓的**带符号名义**为基线（多头为正、空头为负），逐单累加已放行订单影响。
+        # 用带符号量，降风险的订单（如买入平空、卖出减多）才能正确降低名义与总敞口。
         position_notional: dict[str, float] = {
-            symbol: abs(shares) * self._prices.get(symbol, 0.0)
+            symbol: shares * self._prices.get(symbol, 0.0)
             for symbol, shares in portfolio.positions.items()
         }
-        gross_notional = sum(position_notional.values())
         orders_count = 0
 
         for order in orders:
@@ -79,18 +79,21 @@ class PreTradeRiskGate:
                 continue
 
             signed = order_notional if order.side == "buy" else -order_notional
-            projected_position = abs(position_notional.get(order.symbol, 0.0) + signed)
-            if projected_position > self._limits.max_position_per_name:
+            current = position_notional.get(order.symbol, 0.0)
+            projected = current + signed
+            if abs(projected) > self._limits.max_position_per_name:
                 denied.append((order, "超过单标的名义上限"))
                 continue
-            projected_gross = gross_notional + order_notional
+            # 总敞口按带符号名义的绝对值合计（应用本单后）重新求和，减少即真减少。
+            projected_gross = (
+                sum(abs(v) for v in position_notional.values()) - abs(current) + abs(projected)
+            )
             if projected_gross > self._limits.max_gross_exposure:
                 denied.append((order, "超过总敞口上限"))
                 continue
 
             approved.append(order)
             orders_count += 1
-            position_notional[order.symbol] = position_notional.get(order.symbol, 0.0) + signed
-            gross_notional = projected_gross
+            position_notional[order.symbol] = projected
 
         return RiskDecision(approved=approved, denied=denied)
