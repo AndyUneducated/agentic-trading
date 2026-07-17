@@ -6,7 +6,7 @@
 
 ## 背景（Context）
 
-M0–M6 + EVAL 已交付**离线优先的研究/验证骨架**（125 测试全绿），但离生产级 trading agent 仍有明确差距（见 [PRODUCTION-READINESS.md](../PRODUCTION-READINESS.md)）：真实接入、执行真实性、可观测性/运维、合规。需要决定 **(a) 补齐差距的顺序**、**(b) 是否采用成熟开源引擎**。约束：本机算力有限、默认模拟盘、研究纪律要求"无真实 alpha 证据不重工程"。
+M0–M6 + EVAL 已交付**离线优先的研究/验证骨架**（137 测试全绿，含 M9 可观测性核心），但离生产级 trading agent 仍有明确差距（见 [PRODUCTION-READINESS.md](../PRODUCTION-READINESS.md)）：真实接入、执行真实性、可观测性/运维、合规。需要决定 **(a) 补齐差距的顺序**、**(b) 是否采用成熟开源引擎**。约束：本机算力有限、默认模拟盘、研究纪律要求"无真实 alpha 证据不重工程"。
 
 ## 备选方案（Options）
 
