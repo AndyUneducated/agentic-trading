@@ -118,6 +118,11 @@ class MetricsRegistry:
         with self._lock:
             return self._counters.get(name, {}).get(_label_key(labels), 0.0)
 
+    def counter_total(self, name: str) -> float:
+        """跨所有 label 组合求和（如 LLM 各模型成本合计、各原因拒单合计）。"""
+        with self._lock:
+            return sum(self._counters.get(name, {}).values())
+
     def gauge_value(self, name: str, **labels: str) -> float | None:
         with self._lock:
             return self._gauges.get(name, {}).get(_label_key(labels))
