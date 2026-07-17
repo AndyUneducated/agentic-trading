@@ -45,7 +45,19 @@ class PITStore:
         for symbol, group in frame.groupby("symbol"):
             path = self._path(str(symbol), freq)
             path.parent.mkdir(parents=True, exist_ok=True)
-            group.sort_values("ts").to_parquet(path, index=False)
+            combined = group
+            if path.exists():
+                # 增量 upsert：合并既有数据，按 ts 去重（keep last 支持数据订正），
+                # 避免每次写入覆盖历史（真实数据按日增量入库的必要前提）。
+                existing = pd.read_parquet(path)
+                existing["ts"] = pd.to_datetime(existing["ts"], utc=True)
+                combined = pd.concat([existing, group], ignore_index=True)
+            combined = (
+                combined.drop_duplicates(subset="ts", keep="last")
+                .sort_values("ts")
+                .reset_index(drop=True)
+            )
+            combined.to_parquet(path, index=False)
 
     def read_bars(
         self,
