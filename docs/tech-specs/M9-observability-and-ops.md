@@ -127,6 +127,19 @@ flowchart LR
 - 一键容器化部署可复现；密钥不落盘不入库 → §5。
 - 崩溃/断连演练自动恢复、无重复/丢单 → §6 + 幂等测试。
 
+## 10b. 实现状态（离线优先，已落地）
+
+| 模块 | 文件 | 状态 | 测试 |
+| --- | --- | --- | --- |
+| 度量注册表 | `monitoring/metrics.py` `MetricsRegistry`（+ `counter_total`） | ✅ 已实现（Prometheus 文本 + `/metrics`） | `test_monitoring_metrics.py` |
+| 循环/信号埋点 | `execution/loop.py`、`signals/extractor.py` | ✅ 已实现（延迟/步数/拒单/对账/成本/token/缓存/可疑文档） | `test_trading_loop.py`、`test_extractor.py` |
+| 告警规则 | `monitoring/alerts.py` `AlertRule`/`evaluate_alerts`/`default_rules` | ✅ 已实现（对账/降级/可疑文档/成本，阈值化可注入验证） | `test_alerts.py`（5 例） |
+| 轻量 tracing | `monitoring/tracing.py` `Tracer`/`Span`/`SpanRecord` | ✅ 已实现（父子链接 + 耗时，可注入时钟/ID） | `test_tracing.py`（3 例） |
+| 容器化 + runbook | `Dockerfile`、`docs/runbooks/incident-playbook.md` | ✅ 已实现 | — |
+| 真实看板/告警通道/OTLP/密钥托管 | Grafana/Alertmanager/OTel/KMS | 🔜 待真实基建（依赖 M7/M8） | — |
+
+> M9 离线核心已完整：**指标 + 埋点 + 阈值告警 + tracing + 容器化 + runbook**，全量套件 175 测试全绿。真实看板/告警通道/OTLP 导出/密钥托管留待真实基建阶段。
+
 ## 9. 开放问题
 
 - 自建 Prometheus/Grafana vs 托管（Grafana Cloud）成本权衡。

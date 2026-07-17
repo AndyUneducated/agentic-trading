@@ -317,9 +317,11 @@ flowchart LR
   - [ ] 崩溃/断连演练：自动恢复且无重复/丢单。
 - **Eval 增量**：drift/regime **看板化** + 成本监控上线。
 - **依赖**：M5（可与 M8 并行推进）。
-- **实现状态（离线优先，本次落地）**：
-  - ✅ 已落地：`monitoring/metrics.py`（零依赖 `MetricsRegistry`，Prometheus 文本 exposition）+ `/metrics` HTTP 端点；`TradingLoop`/`SentimentExtractor` 埋点（延迟/步数/拒单/对账/LLM 成本/token/缓存/可疑文档）；Dockerfile + [runbook](runbooks/incident-playbook.md)；指标测试（套件 137 全绿）。
-  - 🔜 待真实基建：接真实 Prometheus/Grafana 看板与 Alertmanager 告警、OTel tracing、密钥托管（替代明文 `.env`）、真实部署与断连演练——依赖 M7/M8 的真实接入。
+- **实现状态（离线优先，已落地）**：
+  - ✅ `monitoring/metrics.py`（零依赖 `MetricsRegistry`，Prometheus 文本 exposition）+ `/metrics` HTTP 端点；`TradingLoop`/`SentimentExtractor` 埋点（延迟/步数/拒单/对账/LLM 成本/token/缓存/可疑文档）；Dockerfile + [runbook](runbooks/incident-playbook.md)。
+  - ✅ `monitoring/alerts.py`（`AlertRule`/`evaluate_alerts`/`default_rules`：对账不一致/安全降级/可疑文档/成本超预算，阈值化可注入验证）。
+  - ✅ `monitoring/tracing.py`（零依赖 `Tracer`/span，父子链接 + 耗时，可选升级 OTel）。
+  - 🔜 待真实基建：接真实 Prometheus/Grafana 看板与 Alertmanager、OTLP 导出、密钥托管（替代明文 `.env`）、真实部署与断连演练——依赖 M7/M8 的真实接入。
 
 ## M10 · 合规 + 上线闸门 + 小额实盘
 
