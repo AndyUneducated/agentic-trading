@@ -8,7 +8,7 @@
 ![Pydantic v2](https://img.shields.io/badge/models-pydantic%20v2-E92063?logo=pydantic&logoColor=white)
 ![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)
 ![mypy](https://img.shields.io/badge/types-mypy%20strict-2A6DB2)
-![pytest](https://img.shields.io/badge/tests-189%20passed-3EA639?logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/tests-192%20passed-3EA639?logo=pytest&logoColor=white)
 [![CI](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml)
 ![Trading mode](https://img.shields.io/badge/trading__mode-paper%20(default)-orange)
 ![Status](https://img.shields.io/badge/status-research%20%2F%20offline--first-blue)
@@ -21,17 +21,20 @@
 ## 目录
 
 - [1. 这是什么](#1-这是什么)
-- [2. 两层代理心智模型](#2-两层代理心智模型)
-- [3. 系统架构](#3-系统架构)
-- [4. 运行时闭环（数据流）](#4-运行时闭环数据流)
-- [5. 分层评测体系](#5-分层评测体系)
-- [6. 代码模块地图](#6-代码模块地图)
-- [7. 里程碑状态](#7-里程碑状态)
-- [8. 安全护栏](#8-安全护栏)
-- [9. 技术栈](#9-技术栈)
-- [10. 快速开始](#10-快速开始)
-- [11. 仓库结构](#11-仓库结构)
-- [12. 文档导航](#12-文档导航)
+- [2. 功能特性一览](#2-功能特性一览)
+- [3. 两层代理心智模型](#3-两层代理心智模型)
+- [4. 系统架构](#4-系统架构)
+- [5. 一次决策的完整逻辑（分步拆解）](#5-一次决策的完整逻辑分步拆解)
+- [6. 运行时闭环（数据流）](#6-运行时闭环数据流)
+- [7. 分层评测体系](#7-分层评测体系)
+- [8. 代码模块地图](#8-代码模块地图)
+- [9. 里程碑状态](#9-里程碑状态)
+- [10. 安全护栏](#10-安全护栏)
+- [11. 技术栈](#11-技术栈)
+- [12. 快速开始](#12-快速开始)
+- [13. 深度使用范例](#13-深度使用范例)
+- [14. 仓库结构](#14-仓库结构)
+- [15. 文档导航](#15-文档导航)
 
 ---
 
@@ -43,7 +46,7 @@
 | **标的** | 美股、ETF、加密货币（先聚焦少量高流动性标的）。 |
 | **资金路径** | 回测 → 模拟盘验证 → 达标后小额实盘 → 逐步放量。 |
 | **架构红线** | 运行时 LLM 只输出信号；决策与执行只在确定性层（见 [ADR-0001](docs/decisions/0001-llm-positioning-hybrid.md)）。 |
-| **当前状态** | M1–M10 **离线内核已全部落地并全绿**（189 测试）；**离线优先**：真实 LLM / 数据 / 券商 / Nautilus / 合规签署等真实基建收敛到"人类开关"后（见 [ADR-0009](docs/decisions/0009-offline-first-productionization.md)）。 |
+| **当前状态** | M1–M10 **离线内核已全部落地并全绿**（192 测试）；**离线优先**：真实 LLM / 数据 / 券商 / Nautilus / 合规签署等真实基建收敛到"人类开关"后（见 [ADR-0009](docs/decisions/0009-offline-first-productionization.md)）。 |
 | **核心理念** | 评测即测试（无评测不合并）、规格先行、单变量实验、防过拟合为一等公民、回测-实盘一致。 |
 
 **与"让 LLM 自主交易"的关键区别**：业界 2026 的共识是 LLM 太慢（ms–s 级），须"hot path（确定性执行）/ AI path（LLM 异步生成信号）"解耦——我们的混合红线正是这一范式。
@@ -63,7 +66,29 @@
 
 ---
 
-## 2. 两层代理心智模型
+## 2. 功能特性一览
+
+按能力域组织的功能清单（🟢 已落地/离线可跑，🟡 离线内核+真实基建待接）。所有功能**开箱即跑、零联网**。
+
+| 能力域 | 功能点 | 关键实现 | 状态 |
+| --- | --- | --- | --- |
+| **数据 (PIT)** | Point-in-Time 行情存储、`as_of` 过滤、增量 upsert、数据质量校验 | `PITStore` · `InMemoryDataSource` · `check_bars` | 🟢 |
+| **LLM 信号** | 离线确定性抽取、注入防护、指纹缓存、成本/留痕、prompt 版本化 | `SentimentExtractor` · `KeywordLLMClient` · `SignalCache` · `SignalLog` | 🟢 |
+| **AI 网关 (M7)** | 多后端重试/降级、响应缓存、成本预算熔断、优先级节流、PIT 新闻源、真实后端适配 | `AIGateway` · `CostBudget` · `PriorityThrottler` · `InMemoryNewsSource` · `OpenAICompatibleClient` | 🟡 |
+| **决策** | 情绪阈值选股、等权原始意图、单标的/敞口约束、波动率目标仓位 | `RulesDecisionPolicy` · `PassthroughSizer` · `VolatilityTargetSizer` | 🟢 |
+| **风控** | kill switch、交易模式、日亏熔断、单笔/单标的/总敞口/频率闸门（无旁路） | `PreTradeRiskGate` · `RiskLimits` | 🟢 |
+| **执行** | 幂等差额下单、模拟即时成交、对账、崩溃恢复、高保真成交（延迟/部分成交/费用/滑点） | `TradingLoop` · `SimulatedBroker` · `RealisticBroker` · `Reconciler` · `FileStateStore` | 🟢 / 🟡 |
+| **回测** | 确定性逐期重放、成本模型、回测-实盘同源、基线策略 | `BacktestRunner` · `CostModel` · 4× 基线策略 | 🟢 |
+| **信号评测** | IC / rank-IC / 命中率 / t 统计、保守偏差检查 | `evaluate_signal` · `check_conservatism` | 🟢 |
+| **防过拟合** | walk-forward、purged/embargo CV、留出集守卫、DSR、PBO | `walk_forward` · `purged_kfold` · `HoldoutGuard` · `deflated_sharpe_ratio` · `pbo` | 🟢 |
+| **实验** | 单变量强制、自动记账、基线对照、实验日志落盘 | `ExperimentSpec` · `run_experiment` · `ExperimentRegistry` | 🟢 |
+| **监控 (M9)** | 零依赖 Prometheus 指标、阈值告警、轻量 tracing、regime/drift 检测 | `MetricsRegistry` · `AlertRule` · `Tracer` · `RegimeMonitor` · `compute_drift` | 🟢 |
+| **治理 (M10)** | 上线闸门三重红线、放量/回滚状态机、哈希链防篡改审计 | `GoLiveGate` · `CapitalRampController` · `AuditTrail` | 🟢 |
+| **上线记分卡** | 四层 eval 收口为单一 go/no-go | `GoLiveScorecard` · `build_edge_criteria` | 🟢 |
+
+---
+
+## 3. 两层代理心智模型
 
 本项目最重要的概念：存在**两类**"代理"，切勿混淆。
 
@@ -76,7 +101,7 @@
 
 ---
 
-## 3. 系统架构
+## 4. 系统架构
 
 ```mermaid
 flowchart LR
@@ -122,7 +147,30 @@ flowchart LR
 
 ---
 
-## 4. 运行时闭环（数据流）
+## 5. 一次决策的完整逻辑（分步拆解）
+
+从"一条新闻"到"一笔（可能的）订单"，系统内部经历以下确定性步骤。**除第 ①/② 步的信号抽取外，其余全部是纯函数、可回测、可手算校验**。
+
+| # | 步骤 | 输入 → 输出 | 关键逻辑 / 公式 | 代码 |
+| --- | --- | --- | --- | --- |
+| ① | **PIT 取数** | `as_of` → 只含 `published_at ≤ as_of` 的文档 + `ts ≤ as_of` 的行情 | 时间是过滤主键，杜绝 look-ahead | `news.documents_as_of` · `PITStore.read_bars` |
+| ② | **信号抽取** | 文档 → `SignalSchemaV1{sentiment∈[-1,1], confidence, event_flag, horizon}` | 外部文本视为不可信 → sanitize 隔离；LLM 只产结构化信号 | `SentimentExtractor.extract` |
+| ③ | **选股** | 信号 → 入选标的集 | 取每标的**最新** `as_of` 信号；`sentiment > 阈值 且 confidence ≥ 下限` 才入选，否则空仓（安全默认） | `RulesDecisionPolicy.decide` |
+| ④ | **原始权重** | 入选集 → 等权意图 | `w_raw = 1 / n_selected` | `RulesDecisionPolicy` |
+| ⑤ | **仓位管理** | 原始权重 → 受约束权重 | 禁空(可配)、单标的上限、总敞口上限；波动率目标：`scale = target_vol / √(Σ wᵢ²σᵢ²)` | `PassthroughSizer` · `VolatilityTargetSizer` |
+| ⑥ | **目标→订单** | 目标权重 + 持仓 → 差额订单 | `desired = w·equity/price`；`Δ = desired − held`；跳过 `|Δ|·price < min_notional` 的碎单；`client_order_id = hash(as_of,symbol,side,qty)`（幂等） | `weights_to_orders` |
+| ⑦ | **预交易风控** | 订单 → approved / denied | 全局闸门（kill/模式/日亏）→ 逐单闸门（单笔名义/单标的/总敞口/频率）；**带符号名义**累加，降风险单正确放行 | `PreTradeRiskGate.check` |
+| ⑧ | **执行** | approved → 成交回报 | 幂等去重（重放/重启不重复下单）；模拟即时成交或高保真（延迟/部分成交/费用/滑点） | `SimulatedBroker` / `RealisticBroker` |
+| ⑨ | **对账 + 持久化** | broker 状态 vs 内部状态 → 一致性 + 落盘 | 先记录本步提交再对账（避免自单误判）；原子写状态支持崩溃恢复 | `Reconciler` · `FileStateStore` |
+| ⚠️ | **安全降级** | 任一步异常 → 本步不交易 | 默认不动作而非盲目下单；记 `degraded` 指标 | `TradingLoop.step` |
+
+**日亏熔断的"按日"语义**：`day_start_equity` 跨自然日重置；当 `portfolio.equity ≤ day_start_equity·(1 − daily_loss_limit)` 时当日全拒。
+
+**回测-实盘同源**：③–⑥ 完全相同的 `DecisionPolicy` 既被 `BacktestRunner` 逐期调用，也被 `TradingLoop` 实时调用（[ADR-0003](docs/decisions/0003-backtest-live-parity.md)）——差异只应来自真实摩擦，不来自代码分叉。
+
+---
+
+## 6. 运行时闭环（数据流）
 
 ```mermaid
 sequenceDiagram
@@ -151,7 +199,7 @@ sequenceDiagram
 
 ---
 
-## 5. 分层评测体系
+## 7. 分层评测体系
 
 评测是本项目的"测试套件"，随里程碑逐层长出，最终汇聚成上线记分卡。
 
@@ -176,7 +224,7 @@ flowchart TD
 
 ---
 
-## 6. 代码模块地图
+## 8. 代码模块地图
 
 | 包 | 职责 | 关键类型 |
 | --- | --- | --- |
@@ -217,7 +265,7 @@ server.serve_forever()
 
 ---
 
-## 7. 里程碑状态
+## 9. 里程碑状态
 
 ```mermaid
 flowchart LR
@@ -254,7 +302,7 @@ flowchart LR
 
 ---
 
-## 8. 安全护栏
+## 10. 安全护栏
 
 | 护栏 | 机制 | 位置 |
 | --- | --- | --- |
@@ -270,7 +318,7 @@ flowchart LR
 
 ---
 
-## 9. 技术栈
+## 11. 技术栈
 
 | 类别 | 选型 | 备注 |
 | --- | --- | --- |
@@ -286,7 +334,7 @@ flowchart LR
 
 ---
 
-## 10. 快速开始
+## 12. 快速开始
 
 ```bash
 # 1. 安装 uv（若未安装）: https://docs.astral.sh/uv/
@@ -297,7 +345,7 @@ uv sync --dev
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run mypy
-uv run pytest            # 189 passed
+uv run pytest            # 192 passed
 
 # 仅跑 golden 已知答案回归
 uv run pytest -m golden
@@ -336,7 +384,162 @@ print(result.equity_values())   # 可复现的权益曲线
 
 ---
 
-## 11. 仓库结构
+## 13. 深度使用范例
+
+以下 6 个片段覆盖核心工作流，全部**离线可跑、零 API key**。每个片段都有对应单测作为可运行证据（见文末引用）。
+
+### 13.1 LLM 信号抽取（网关 + 预算熔断 + 缓存）
+
+真实后端只需把 `KeywordLLMClient` 换成 `OpenAICompatibleClient`，其余不变。
+
+```python
+from datetime import UTC, datetime
+from atrading.signals import (
+    AIGateway, CostBudget, Document, InMemoryNewsSource,
+    KeywordLLMClient, SentimentExtractor, SignalCache, load_prompt,
+)
+
+budget = CostBudget(daily_limit_usd=5.0)                       # 预算耗尽即熔断，安全降级
+gateway = AIGateway(KeywordLLMClient(), budget=budget)         # 多后端重试/降级/响应缓存
+extractor = SentimentExtractor(
+    gateway,
+    load_prompt("sentiment", "v1", expected_schema="SignalDraft"),
+    cache=SignalCache(),                                        # 指纹去重：同输入不重复调用
+)
+
+news = InMemoryNewsSource([
+    Document(source_id="wire", symbol="AAPL",
+             published_at=datetime(2026, 1, 2, tzinfo=UTC),
+             text="Apple beats earnings, raises guidance; record revenue."),
+])
+as_of = datetime(2026, 1, 3, tzinfo=UTC)
+docs = news.documents_as_of(as_of, ["AAPL"])                   # PIT：只见已发布文档
+result = extractor.extract(symbol="AAPL", as_of=as_of, documents=docs)
+print(result.signal.sentiment, result.signal.confidence, result.cost_usd)
+```
+
+### 13.2 完整模拟盘闭环（信号 → 决策 → 风控 → 执行 → 对账）
+
+```python
+from datetime import UTC, datetime, timedelta
+from atrading.config.settings import Settings
+from atrading.core.signal_schema import SignalSchemaV1
+from atrading.core.strategy_config import StrategyConfig
+from atrading.core.types import Bar
+from atrading.data import InMemoryDataSource
+from atrading.decision import PassthroughSizer, RulesDecisionPolicy
+from atrading.execution import FileStateStore, SimulatedBroker, TradingLoop
+from atrading.risk import PreTradeRiskGate, RiskLimits
+from atrading.signals import LLMSignalSource
+
+config = StrategyConfig(name="demo", universe=["AAA"], decision_freq="daily")
+prices: dict[str, float] = {}                                  # 由 loop 持续更新（broker/风控共享引用）
+days = [datetime(2026, 1, 1, tzinfo=UTC) + timedelta(days=i) for i in range(3)]
+bars = [Bar(symbol="AAA", ts=d, open=p, high=p, low=p, close=p, volume=1.0)
+        for d, p in zip(days, [100.0, 101.0, 102.0])]
+signal = SignalSchemaV1(symbol="AAA", as_of=days[0], sentiment=0.8, horizon_days=5,
+                        confidence=0.9, model_version="offline-keyword-v1",
+                        prompt_version="v1", rationale="demo")
+
+loop = TradingLoop(
+    policy=RulesDecisionPolicy(config, PassthroughSizer(config)),
+    data=InMemoryDataSource(bars),
+    signals=LLMSignalSource([signal]),
+    risk_gate=PreTradeRiskGate(
+        RiskLimits(max_position_per_name=60_000, max_gross_exposure=100_000,
+                   max_notional_per_order=50_000, max_orders_per_interval=5,
+                   daily_loss_limit=0.2),
+        Settings(), prices),                                   # 默认 paper 模式
+    broker=SimulatedBroker(prices, starting_cash=100_000.0),
+    state_store=FileStateStore("/tmp/atrading_state.json"),    # 崩溃恢复
+    config=config, prices=prices,
+)
+reports = loop.run(days)
+print([r.submitted_order_ids for r in reports], loop.state.positions)
+```
+
+### 13.3 信号质量评测（IC / 显著性 / 保守偏差）
+
+盈利之外**独立**衡量信号预测力——信号级裁判，避免"复述已定价信息"。
+
+```python
+from atrading.eval import evaluate_signal, check_conservatism
+
+sentiments      = [0.8, -0.6, 0.4, -0.9, 0.2]
+forward_returns = [0.03, -0.02, 0.01, -0.04, 0.015]           # 须严格取自各 as_of 之后（PIT）
+ev = evaluate_signal(sentiments, forward_returns)
+print(f"IC={ev.ic:.3f} rankIC={ev.rank_ic:.3f} 命中率={ev.hit_rate:.0%} 显著={ev.is_significant()}")
+print("保守偏差:", check_conservatism(sentiments).biased)      # LLM 是否系统性偏空
+```
+
+### 13.4 防过拟合验证（walk-forward + DSR + PBO + 留出集守卫）
+
+```python
+from datetime import UTC, datetime, timedelta
+from atrading.eval import DateRange, HoldoutGuard, deflated_sharpe_ratio, pbo, walk_forward
+
+splits = walk_forward(
+    start=datetime(2020, 1, 1, tzinfo=UTC), end=datetime(2024, 1, 1, tzinfo=UTC),
+    train_span=timedelta(days=365), test_span=timedelta(days=90), step=timedelta(days=90))
+print(len(splits), "个滚动窗口（测试窗恒在训练窗之后，无未来）")
+
+print("DSR:", deflated_sharpe_ratio(observed_sharpe=0.12, n_trials=50, n_obs=750))  # 多重检验校正
+print("PBO:", pbo([0.1, 0.2, 0.9], [0.8, 0.3, 0.95]))                              # 过拟合概率
+
+guard = HoldoutGuard(DateRange(start=datetime(2024, 1, 1, tzinfo=UTC),
+                               end=datetime(2025, 1, 1, tzinfo=UTC)))
+holdout = guard.acquire("final_eval", note="最终一次性判定")   # 再次访问会抛错（防偷看后调参）
+```
+
+### 13.5 上线闸门 + 放量/回滚 + 防篡改审计（M10 治理）
+
+```python
+from datetime import UTC, datetime
+from atrading.core.falsification import EdgeCriteria
+from atrading.eval import GoLiveScorecard
+from atrading.governance import AuditTrail, CapitalRampController, GoLiveGate
+
+edge = EdgeCriteria(beats_zero_baseline=True, beats_price_only=True,
+                    beats_buy_hold=True, beats_oss_baseline=True, significance_ok=True)
+scorecard = GoLiveScorecard(edge=edge, oos_metrics_pass=True, dsr_pass=True, pbo_pass=True,
+                            net_of_all_costs_positive=True, drift_within_bounds=True,
+                            guardrails_verified=True)
+
+gate = GoLiveGate(scorecard=scorecard, human_approved=False)   # 三重红线，缺省不放行
+print(gate.allowed, gate.blockers())                           # False, ['缺少人类明确批准 …']
+
+ramp = CapitalRampController()                                 # paper→pilot→ramp→scaled
+d = ramp.evaluate(scorecard_go=scorecard.go, live_drawdown=0.0, drift_ok=True, days_at_stage=5)
+print(d.action, "→", d.to_stage)                              # promote → pilot
+
+trail = AuditTrail()                                           # 哈希链防篡改留痕
+trail.append("signal", {"symbol": "AAA", "sentiment": 0.8}, ts=datetime(2026, 1, 1, tzinfo=UTC))
+print("审计完整:", trail.verify())                             # 任一历史被改则 False
+```
+
+### 13.6 可观测性（Prometheus 指标 + 阈值告警 + tracing）
+
+```python
+from atrading.monitoring import MetricsRegistry, Tracer, default_rules, evaluate_alerts
+
+metrics = MetricsRegistry()
+metrics.inc("atrading_steps_total", result="ok")
+metrics.set("atrading_reconcile_mismatch", 1.0)               # 模拟对账不一致
+for alert in evaluate_alerts(metrics, default_rules()):
+    print(alert.severity, alert.name, "-", alert.message)     # → critical ReconcileMismatch …
+print(metrics.render().splitlines()[0])                        # Prometheus 文本 exposition
+
+tracer = Tracer()
+with tracer.span("loop_step"), tracer.span("decide"):
+    pass
+print([(s.name, s.parent_id) for s in tracer.finished()])      # 子 span 链接到父 span
+```
+
+> **每个范例都有对应单测**：13.1→`test_m7_pipeline.py`、13.2→`test_trading_loop.py`、13.3→`test_signal_eval.py`、13.4→`test_validation.py`+`test_overfit.py`、13.5→`test_golive.py`+`test_ramp.py`+`test_audit.py`、13.6→`test_alerts.py`+`test_tracing.py`。
+
+---
+
+## 14. 仓库结构
 
 ```text
 .
@@ -349,14 +552,14 @@ print(result.equity_values())   # 可复现的权益曲线
 ├── prompts/                   # 版本化 prompt（.md + .meta.yaml）
 ├── src/atrading/              # 源码（core/config/data/backtest/signals/
 │                              #        decision/risk/execution/eval/
-│                              #        experiments/monitoring）
+│                              #        experiments/monitoring/governance）
 ├── tests/                     # unit/ + golden/
 └── docs/                      # 章程/里程碑/规格/决策/实验/技术方案
 ```
 
 ---
 
-## 12. 文档导航
+## 15. 文档导航
 
 | 文档 | 作用 |
 | --- | --- |
@@ -368,6 +571,6 @@ print(result.equity_values())   # 可复现的权益曲线
 | [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | 竞品与生产实践对标、差距分析与取舍 |
 | [docs/tech-specs/](docs/tech-specs/) | 各里程碑详细技术方案（面向 AI-coding） |
 | [docs/specs/](docs/specs/) | 各模块规格（strategy / backtest-eval / llm-signal） |
-| [docs/decisions/](docs/decisions/) | 架构决策记录（ADR-0001 … 0008） |
+| [docs/decisions/](docs/decisions/) | 架构决策记录（ADR-0001 … 0009） |
 | [docs/experiments/](docs/experiments/) | 单变量实验日志 |
 | [docs/GLOSSARY.md](docs/GLOSSARY.md) | 交易术语与数据字典 |
