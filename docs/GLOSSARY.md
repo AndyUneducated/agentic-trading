@@ -2,6 +2,24 @@
 
 > 统一术语，避免人与代理对同一概念的理解漂移。随项目推进持续补充。
 
+## 概念关系图
+
+```mermaid
+flowchart LR
+  EDGE["Edge 假设"] --> SIGNAL["Signal/因子<br/>(LLM 提取)"]
+  SIGNAL --> DECISION["决策 (规则/量化)"]
+  DECISION --> ORDER["Order (幂等)"]
+  ORDER --> RISK["Kill switch / 风控门"]
+  RISK --> FILL["Fill / Portfolio"]
+  FILL --> EVAL["Eval (信号级 + 策略级)"]
+  EVAL --> OVERFIT["DSR / PBO / walk-forward"]
+  OVERFIT --> DRIFT["Drift / Regime 监控"]
+  DRIFT --> GATE["Go-live Gate"]
+  PIT["Point-in-time"] -.约束.-> SIGNAL
+  PIT -.约束.-> DECISION
+  PIT -.约束.-> EVAL
+```
+
 ## A. 交易与量化术语
 
 | 术语 | 含义 |
@@ -39,8 +57,36 @@
 
 ## C. 数据字典（Data Dictionary）
 
-> 在 M3 数据层建立时逐条填充：字段名、类型、来源、频率、PIT 说明、缺失值处理。
+> 核心领域类型定义于 `src/atrading/core/types.py`（Pydantic 模型，所有时间字段 `AwareDatetime`，杜绝 naive datetime 引发的 PIT 错误）。
 
-| 字段 | 类型 | 来源 | 频率 | PIT? | 备注 |
-| --- | --- | --- | --- | --- | --- |
-| `TODO` | | | | | |
+### `Bar`（行情）
+
+| 字段 | 类型 | PIT? | 备注 |
+| --- | --- | --- | --- |
+| `symbol` | str | — | 标的代码 |
+| `ts` | AwareDatetime | ✅ | bar 收盘时刻（UTC） |
+| `open/high/low/close` | float | — | OHLC |
+| `volume` | float | — | 成交量 |
+
+### `Signal` / `SignalSchemaV1`（LLM 信号）
+
+| 字段 | 类型 | PIT? | 备注 |
+| --- | --- | --- | --- |
+| `symbol` | str | — | 标的 |
+| `as_of` | AwareDatetime | ✅ | 信号"当时可用"时刻 |
+| `sentiment` | float [-1,1] | — | 情绪分 |
+| `event_flag` | enum | — | none/earnings/… |
+| `confidence` | float [0,1] | — | 置信度 |
+| `model_version`/`prompt_version` | str | — | 可复现留痕 |
+| `rationale` | str | — | 推理理由（留痕） |
+
+### `Order` / `Fill` / `PortfolioState`（执行）
+
+| 字段 | 类型 | 备注 |
+| --- | --- | --- |
+| `Order.client_order_id` | str | **幂等键**：重启/重放去重、对账主键 |
+| `Order.side/qty/order_type` | enum/float | buy/sell；market/limit |
+| `Fill.price/qty/fee/ts` | float/AwareDatetime | 成交回报 |
+| `PortfolioState.cash/positions/equity` | float/dict/float | 组合快照 |
+
+> 真实外部数据源字段（新闻/行情供应商）将在 [M7](tech-specs/M7-real-integrations.md) 接入时补充来源/频率列。
