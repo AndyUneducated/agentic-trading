@@ -94,6 +94,18 @@ flowchart LR
 - LLM 仍**绝不下单**（ADR-0001）；实盘不改这条红线。
 - go/no-go 决定必须写入 `docs/decisions/` 留痕。
 
+## 7b. 实现状态（治理内核已落地）
+
+| 模块 | 文件 | 状态 | 测试 |
+| --- | --- | --- | --- |
+| 上线闸门 | `governance/golive.py` `GoLiveGate` | ✅ 已实现（记分卡全绿 + 人类批准 + KILL_SWITCH 关闭，三重红线 + blockers） | `test_golive.py`（4 例） |
+| 放量/回滚状态机 | `governance/ramp.py` `CapitalRampController` | ✅ 已实现（逐级晋级/软回滚/硬止损停机/人工复位） | `test_ramp.py`（7 例） |
+| 防篡改审计追踪 | `governance/audit.py` `AuditTrail` | ✅ 已实现（哈希链 + `verify()` + jsonl 持久化 + signal→decision→order→fill 留痕） | `test_audit.py`（3 例） |
+| go-live 记分卡聚合 | `eval/scorecard.py` `GoLiveScorecard`（复用） | ✅ 已实现（四层 eval 硬门槛收口） | `test_scorecard.py` + `test_golive.py` |
+| 合规要件 / 真实签署放量 | 市场准入/最佳执行/税务批次/小额实盘 | 🔜 待真实基建（依赖 M7/M8 真实接入 + 人类闸门） | — |
+
+> 安全红线已在代码中强制：`GoLiveGate.allowed` 要求记分卡全绿 **且** 人类明确批准 **且** KILL_SWITCH 关闭——缺省 `human_approved=False`（安全默认），绝不自动上线（ADR-0001/交易安全护栏）。全量套件 189 测试全绿。
+
 ## 8. 开放问题
 
 - 首选实盘券商与市场（美股 Alpaca / 加密 CCXT）及各自合规口径。

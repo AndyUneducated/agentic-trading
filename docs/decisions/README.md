@@ -18,3 +18,4 @@
 | [0006](0006-runtime-execution-and-safety.md) | 运行时执行架构与安全护栏（预交易风控门/模拟 broker/文件式状态/对账/安全降级） | Accepted |
 | [0007](0007-experimentation-and-monitoring.md) | 实验纪律与 regime/drift 监控方法（单变量强制/n_trials/统计漂移/OSS 离线基线） | Accepted |
 | [0008](0008-production-roadmap-and-oss-adoption.md) | 生产化路线排序（先真实 alpha 证据）与开源引擎采用（Nautilus/vectorbt） | Accepted |
+| [0009](0009-offline-first-productionization.md) | M7–M10 离线优先落地（同协议骨架，延迟重依赖与真实联网） | Accepted |
