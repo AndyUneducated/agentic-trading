@@ -8,7 +8,7 @@
 ![Pydantic v2](https://img.shields.io/badge/models-pydantic%20v2-E92063?logo=pydantic&logoColor=white)
 ![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)
 ![mypy](https://img.shields.io/badge/types-mypy%20strict-2A6DB2)
-![pytest](https://img.shields.io/badge/tests-137%20passed-3EA639?logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/tests-189%20passed-3EA639?logo=pytest&logoColor=white)
 [![CI](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml)
 ![Trading mode](https://img.shields.io/badge/trading__mode-paper%20(default)-orange)
 ![Status](https://img.shields.io/badge/status-research%20%2F%20offline--first-blue)
@@ -43,7 +43,7 @@
 | **标的** | 美股、ETF、加密货币（先聚焦少量高流动性标的）。 |
 | **资金路径** | 回测 → 模拟盘验证 → 达标后小额实盘 → 逐步放量。 |
 | **架构红线** | 运行时 LLM 只输出信号；决策与执行只在确定性层（见 [ADR-0001](docs/decisions/0001-llm-positioning-hybrid.md)）。 |
-| **当前状态** | M1–M6 + EVAL + M9 可观测性核心**已落地并全绿**（137 测试）；**离线优先**：尚未接入真实 LLM / 数据 / 券商。 |
+| **当前状态** | M1–M10 **离线内核已全部落地并全绿**（189 测试）；**离线优先**：真实 LLM / 数据 / 券商 / Nautilus / 合规签署等真实基建收敛到"人类开关"后（见 [ADR-0009](docs/decisions/0009-offline-first-productionization.md)）。 |
 | **核心理念** | 评测即测试（无评测不合并）、规格先行、单变量实验、防过拟合为一等公民、回测-实盘一致。 |
 
 **与"让 LLM 自主交易"的关键区别**：业界 2026 的共识是 LLM 太慢（ms–s 级），须"hot path（确定性执行）/ AI path（LLM 异步生成信号）"解耦——我们的混合红线正是这一范式。
@@ -184,13 +184,14 @@ flowchart TD
 | `config/` | 类型化配置与安全护栏 | `Settings`（`trading_mode`/`kill_switch`/`can_trade`） |
 | `data/` | PIT 数据层 | `PITStore`(parquet, `as_of` 过滤) · `InMemoryDataSource` · `check_bars` |
 | `backtest/` | 确定性参考回测引擎 | `BacktestRunner` · `CostModel` · 基线策略 |
-| `signals/` | LLM 信号层（离线优先） | `LLMClient`(协议)+`KeywordLLMClient`(stub) · `SentimentExtractor` · `SignalCache` · `SignalLog` · `LLMSignalSource` · 注入防护/版本化 prompt |
+| `signals/` | LLM 信号层（离线优先）+ M7 真实接入骨架 | `LLMClient`+`KeywordLLMClient` · `SentimentExtractor` · `SignalCache`/`SignalLog` · `LLMSignalSource` · **`AIGateway`**(重试/降级/缓存/预算熔断) · **`CostBudget`** · **`PriorityThrottler`** · **`InMemoryNewsSource`**(PIT) · **`OpenAICompatibleClient`** |
 | `decision/` | 规则/量化决策层 | `RulesDecisionPolicy` · `PassthroughSizer` · `VolatilityTargetSizer` |
 | `risk/` | 预交易风控门 | `PreTradeRiskGate` · `RiskLimits` |
-| `execution/` | 模拟盘执行闭环 | `TradingLoop` · `weights_to_orders` · `SimulatedBroker` · `Reconciler` · `FileStateStore` |
-| `eval/` | 分层评测 + 防过拟合 | `metrics` · `validation` · `overfit` · `baselines` · `scorecard` · `report` · `signal_eval` |
+| `execution/` | 执行闭环 + M8 执行真实性 | `TradingLoop` · `weights_to_orders` · `SimulatedBroker` · `Reconciler` · `FileStateStore` · **`RealisticBroker`**(延迟/部分成交) · **`CommissionModel`**/**`SlippageModel`** |
+| `eval/` | 分层评测 + 防过拟合 | `metrics` · `validation` · `overfit` · `baselines` · `scorecard`(`GoLiveScorecard`) · `report` · `signal_eval` |
 | `experiments/` | 单变量实验 + 记账 | `ExperimentSpec`(单变量强制) · `run_experiment` · `ExperimentRegistry`(n_trials) |
-| `monitoring/` | regime / drift 监控 + 度量指标 | `RegimeMonitor` · `RefreshPolicy` · `compute_drift` · `MetricsRegistry` |
+| `monitoring/` | regime/drift + M9 可观测性 | `RegimeMonitor` · `compute_drift` · `MetricsRegistry` · **`AlertRule`/`evaluate_alerts`** · **`Tracer`** |
+| `governance/` | M10 上线治理 | **`GoLiveGate`**(三重红线) · **`CapitalRampController`**(放量/回滚) · **`AuditTrail`**(哈希链审计) |
 
 ### 可观测性度量（M9，离线核心）
 
@@ -226,10 +227,10 @@ flowchart LR
   M3 --> M5["M5 决策+风控+模拟盘"]:::done
   M4 --> M5
   M5 --> M6["M6 实验+监控"]:::done
-  M6 --> M7["M7 真实接入 MVP"]:::todo
-  M7 --> M8["M8 生产执行引擎(Nautilus)"]:::todo
-  M8 --> M9["M9 可观测性+运维(核心已落地)"]:::wip
-  M9 --> M10["M10 合规+小额实盘"]:::todo
+  M6 --> M7["M7 真实接入(网关/预算/PIT,离线骨架)"]:::wip
+  M7 --> M8["M8 执行真实性(费用/滑点/部分成交,离线)"]:::wip
+  M8 --> M9["M9 可观测性+运维(指标/告警/tracing,离线)"]:::wip
+  M9 --> M10["M10 治理(上线闸门/放量/审计,离线)"]:::wip
   classDef done fill:#1f6f3d,color:#fff,stroke:#134d29;
   classDef wip fill:#8a6d1f,color:#fff,stroke:#5c4813;
   classDef todo fill:#333,color:#bbb,stroke:#555,stroke-dasharray:4 3;
@@ -244,12 +245,12 @@ flowchart LR
 | M4 LLM 信号层 | 离线 stub 全链路 + 信号评测 | ✅ 完成（离线优先） |
 | M5 决策 + 模拟盘 | 决策层 + 风控门 + 对账 + 崩溃恢复（[ADR-0006](docs/decisions/0006-runtime-execution-and-safety.md)） | ✅ 完成（模拟） |
 | M6 实验 + 监控 | 单变量实验 + regime/drift（[ADR-0007](docs/decisions/0007-experimentation-and-monitoring.md)） | ✅ 完成（离线） |
-| **M7 真实接入 MVP** | 真实数据 + LLM（低频小预算）+ AI gateway | 🚧 规划中 |
-| **M8 生产执行引擎** | 采用 Nautilus + 真实 paper 券商 | 🚧 规划中 |
-| **M9 可观测性 + 运维** | 指标/tracing/告警 + 容器化 + 密钥托管 | 🟡 进行中（度量核心 + `/metrics` 已落地，离线） |
-| **M10 合规 + 小额实盘** | 审计/最佳执行 + 上线闸门 + 逐步放量 | 🚧 规划中 |
+| **M7 真实接入 MVP** | AI gateway / 成本预算熔断 / 优先级节流 / PIT 新闻源 / 真实后端适配 | 🟡 离线骨架已落地（真实联网待人类开关） |
+| **M8 生产执行引擎** | 高保真 broker（费用/滑点/延迟/部分成交）+ 回测-实盘 parity | 🟡 离线执行真实性已落地（Nautilus/真实 paper 待接） |
+| **M9 可观测性 + 运维** | 指标 + 告警规则 + tracing + 容器化 + runbook | 🟡 离线核心已落地（Grafana/OTLP/密钥托管待接） |
+| **M10 合规 + 小额实盘** | 上线闸门（三重红线）+ 放量/回滚状态机 + 防篡改审计 | 🟡 治理内核已落地（合规对接/实盘签署待人类闸门） |
 
-> 生产化路线（M7–M10）依据 → [docs/PRODUCTION-READINESS.md](docs/PRODUCTION-READINESS.md)。
+> 生产化路线（M7–M10）依据 → [docs/PRODUCTION-READINESS.md](docs/PRODUCTION-READINESS.md)；离线优先落地取舍 → [ADR-0009](docs/decisions/0009-offline-first-productionization.md)。
 
 ---
 
@@ -296,7 +297,7 @@ uv sync --dev
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run mypy
-uv run pytest            # 137 passed
+uv run pytest            # 189 passed
 
 # 仅跑 golden 已知答案回归
 uv run pytest -m golden
