@@ -20,7 +20,7 @@
 | [M9-observability-and-ops.md](M9-observability-and-ops.md) | M9 | 指标/tracing/告警 + 容器化 + 密钥托管 + incident playbook（生产化） |
 | [M10-compliance-and-go-live.md](M10-compliance-and-go-live.md) | M10 | 合规要件 + 上线闸门记分卡 + 小额实盘/放量/回滚（生产化） |
 
-> **状态**：M1–M6 + EVAL **已实现并全绿**（125 测试，离线优先）；示例代码与实际实现基本一致。**M7–M10 为提案**（生产化路线，见 [PRODUCTION-READINESS.md](../PRODUCTION-READINESS.md)），其示例代码是"目标接口"。
+> **状态**：M1–M6 + EVAL + **M9 可观测性核心**已实现并全绿（137 测试，离线优先）；示例代码与实际实现基本一致。**M7/M8/M10 为提案**（生产化路线，见 [PRODUCTION-READINESS.md](../PRODUCTION-READINESS.md)），其示例代码是"目标接口"。
 
 ## 1. 技术栈（见 ADR-0004，Accepted）
 

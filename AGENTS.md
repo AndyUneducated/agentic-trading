@@ -57,6 +57,6 @@
 
 ## 7. 当前阶段
 
-**M0–M6 + EVAL 已落地（离线优先，125 测试全绿）**：契约 → PIT 数据 + 回测 → 防过拟合评测 → LLM 信号层（离线 stub）→ 决策 + 预交易风控门 + 模拟盘闭环 → 实验框架 + regime/drift 监控。代码在 `src/atrading/`。
+**M0–M6 + EVAL 已落地（离线优先，137 测试全绿）**：契约 → PIT 数据 + 回测 → 防过拟合评测 → LLM 信号层（离线 stub）→ 决策 + 预交易风控门 + 模拟盘闭环 → 实验框架 + regime/drift 监控。**M9 可观测性核心**（`monitoring/metrics.py` 零依赖度量 + `/metrics` 端点 + 埋点）亦已离线落地。代码在 `src/atrading/`。
 
-**下一步：生产化路线 M7–M10**（见 `docs/MILESTONES.md` 与 `docs/PRODUCTION-READINESS.md`）：M7 真实接入（数据+LLM）→ M8 生产执行引擎（采用 Nautilus）→ M9 可观测性/运维 → M10 合规 + 小额实盘。排序依据 `docs/decisions/0008-production-roadmap-and-oss-adoption.md`（**先真实 alpha 证据，后重工程**）。
+**下一步：生产化路线 M7/M8/M10**（见 `docs/MILESTONES.md` 与 `docs/PRODUCTION-READINESS.md`）：M7 真实接入（数据+LLM）→ M8 生产执行引擎（采用 Nautilus）→ M10 合规 + 小额实盘；M9 剩余（真实 Grafana/告警/密钥托管/部署）随真实接入补齐。排序依据 `docs/decisions/0008-production-roadmap-and-oss-adoption.md`（**先真实 alpha 证据，后重工程**）。

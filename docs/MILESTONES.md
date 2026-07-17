@@ -32,7 +32,7 @@ flowchart TD
   class M7,M8,M9,M10 todo;
 ```
 
-> M0–M6 + EVAL 已落地（离线优先，125 测试全绿）；**M7–M10 为生产化路线**，排序依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md) 与 [ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md)。
+> M0–M6 + EVAL 已落地（离线优先，137 测试全绿），**M9 可观测性核心已落地**（离线）；**M7/M8/M10 为生产化路线**，排序依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md) 与 [ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md)。
 
 | 里程碑 | 一句话目标 | 核心交付物 | 准出指标（关键项） |
 | --- | --- | --- | --- |
@@ -307,6 +307,9 @@ flowchart LR
   - [ ] 崩溃/断连演练：自动恢复且无重复/丢单。
 - **Eval 增量**：drift/regime **看板化** + 成本监控上线。
 - **依赖**：M5（可与 M8 并行推进）。
+- **实现状态（离线优先，本次落地）**：
+  - ✅ 已落地：`monitoring/metrics.py`（零依赖 `MetricsRegistry`，Prometheus 文本 exposition）+ `/metrics` HTTP 端点；`TradingLoop`/`SentimentExtractor` 埋点（延迟/步数/拒单/对账/LLM 成本/token/缓存/可疑文档）；Dockerfile + [runbook](runbooks/incident-playbook.md)；指标测试（套件 137 全绿）。
+  - 🔜 待真实基建：接真实 Prometheus/Grafana 看板与 Alertmanager 告警、OTel tracing、密钥托管（替代明文 `.env`）、真实部署与断连演练——依赖 M7/M8 的真实接入。
 
 ## M10 · 合规 + 上线闸门 + 小额实盘
 
