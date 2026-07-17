@@ -32,7 +32,7 @@ flowchart TD
   class M7,M8,M9,M10 todo;
 ```
 
-> M0–M6 + EVAL 已落地（离线优先，137 测试全绿），**M9 可观测性核心已落地**（离线）；**M7/M8/M10 为生产化路线**，排序依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md) 与 [ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md)。
+> M0–M6 + EVAL 已落地（离线优先），**M7 真实接入骨架 + M9 可观测性核心已落地**（离线优先，155 测试全绿）；**M8/M10 及 M7/M9 的真实基建为后续生产化路线**，排序依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md) 与 [ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md)。
 
 | 里程碑 | 一句话目标 | 核心交付物 | 准出指标（关键项） |
 | --- | --- | --- | --- |
@@ -273,6 +273,11 @@ flowchart LR
   - [ ] 无前视：新闻 PIT 隔离有测试（构造未来文档不得进入历史决策）。
   - [ ] AI gateway：注入供应商超时/限流 → 安全降级不崩溃、成本熔断生效。
 - **Eval 增量**：信号级评测接入**真实**数据；OSS 对照基线实证。
+- **实现状态（离线骨架已落地）**：
+  - ✅ `signals/budget.py`（`CostBudget` 日/累计上限 + 熔断）、`signals/gateway.py`（`AIGateway` 重试/降级/缓存/预算熔断，实现 `LLMClient`）、`signals/throttle.py`（`PriorityThrottler`）、`signals/news.py`（`InMemoryNewsSource` PIT）。
+  - ✅ `signals/providers.py`（`OpenAICompatibleClient` + DeepSeek/Ollama 工厂，OpenAI 兼容）——结构就位、**不在 CI 联网**。
+  - ✅ 端到端离线打通：网关→提取器→`evaluate_signal`（`test_m7_pipeline.py`）；共 17 项 M7 单测。
+  - 🔜 待真人开关：真实网络调用 + 真实信号样本外 vs 价量基线实证（写 `docs/experiments/`）。
 - **风险**：公开信息 alpha 常被定价（[LANDSCAPE](LANDSCAPE.md)）；LLM 保守偏差。若 M7 证否 Edge，**这是有价值的负结论**，据此调整假设而非硬上工程。
 - **依赖**：M4、M6。 → 技术方案 [tech-specs/M7-real-integrations.md](tech-specs/M7-real-integrations.md)。
 
