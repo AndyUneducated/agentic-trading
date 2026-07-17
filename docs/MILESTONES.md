@@ -32,7 +32,7 @@ flowchart TD
   class M7,M8,M9,M10 todo;
 ```
 
-> M0–M10 **离线内核已全部落地**（离线优先，192 测试全绿）：M7 真实接入骨架 + M8 执行真实性 + M9 可观测性 + M10 上线治理。**真实基建（真实 LLM/数据/券商、Nautilus、Grafana/OTLP/密钥托管、合规与实盘签署）收敛到"人类开关"后**，排序依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md)、[ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md) 与 [ADR-0009](decisions/0009-offline-first-productionization.md)。
+> M0–M10 **离线内核已全部落地**（离线优先，197 测试全绿）：M7 真实接入骨架 + M8 执行真实性 + M9 可观测性 + M10 上线治理。**真实基建（真实 LLM/数据/券商、Nautilus、Grafana/OTLP/密钥托管、合规与实盘签署）收敛到"人类开关"后**，排序依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md)、[ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md) 与 [ADR-0009](decisions/0009-offline-first-productionization.md)。
 
 | 里程碑 | 一句话目标 | 核心交付物 | 准出指标（关键项） |
 | --- | --- | --- | --- |
