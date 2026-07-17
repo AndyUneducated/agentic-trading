@@ -11,6 +11,7 @@ from atrading.core.types import Bar
 from atrading.data import InMemoryDataSource
 from atrading.decision import PassthroughSizer, RulesDecisionPolicy
 from atrading.execution import FileStateStore, SimulatedBroker, TradingLoop
+from atrading.monitoring import MetricsRegistry
 from atrading.risk import PreTradeRiskGate, RiskLimits
 from atrading.signals import LLMSignalSource
 
@@ -220,3 +221,73 @@ def test_backtest_live_parity_same_target_weights(tmp_path: Path) -> None:
 
     # 同一 DecisionPolicy、同输入 → 回测与实盘循环产出一致的目标权重（ADR-0003）。
     assert bt_weights == loop_weights
+
+
+def test_metrics_recorded_on_normal_step(tmp_path: Path) -> None:
+    metrics = MetricsRegistry()
+    prices: dict[str, float] = {}
+    broker = SimulatedBroker(prices, starting_cash=100_000.0)
+    config = _config()
+    loop = TradingLoop(
+        policy=RulesDecisionPolicy(config, PassthroughSizer(config)),
+        data=InMemoryDataSource(_series("AAA", [100.0, 101.0])),
+        signals=LLMSignalSource([_signal("AAA", 0.8)]),
+        risk_gate=PreTradeRiskGate(_generous_limits(), Settings(), prices),
+        broker=broker,
+        state_store=FileStateStore(tmp_path / "s.json"),
+        config=config,
+        prices=prices,
+        metrics=metrics,
+    )
+    loop.step(datetime(2026, 1, 1, tzinfo=UTC))
+
+    assert metrics.counter_value("atrading_steps_total", result="ok") == 1
+    assert metrics.counter_value("atrading_orders_submitted_total") == 1
+    assert metrics.histogram_stats("atrading_decision_seconds")[1] == 1  # 观测到一次延迟
+    assert metrics.gauge_value("atrading_reconcile_mismatch") == 0
+
+
+def test_metrics_records_denials(tmp_path: Path) -> None:
+    metrics = MetricsRegistry()
+    prices: dict[str, float] = {}
+    config = _config()
+    tiny_limits = _generous_limits().model_copy(update={"max_notional_per_order": 1_000.0})
+    loop = TradingLoop(
+        policy=RulesDecisionPolicy(config, PassthroughSizer(config)),
+        data=InMemoryDataSource(_series("AAA", [100.0, 101.0])),
+        signals=LLMSignalSource([_signal("AAA", 0.8)]),
+        risk_gate=PreTradeRiskGate(tiny_limits, Settings(), prices),
+        broker=SimulatedBroker(prices, starting_cash=100_000.0),
+        state_store=FileStateStore(tmp_path / "s.json"),
+        config=config,
+        prices=prices,
+        metrics=metrics,
+    )
+    report = loop.step(datetime(2026, 1, 1, tzinfo=UTC))
+
+    assert report.denied
+    assert metrics.counter_value("atrading_risk_denials_total", reason="超过单笔名义上限") == 1
+
+
+def test_metrics_records_degraded_step(tmp_path: Path) -> None:
+    class BrokenData:
+        def get_bars(self, symbols, start, end, freq):  # type: ignore[no-untyped-def]
+            msg = "down"
+            raise RuntimeError(msg)
+
+    metrics = MetricsRegistry()
+    prices: dict[str, float] = {}
+    config = _config()
+    loop = TradingLoop(
+        policy=RulesDecisionPolicy(config, PassthroughSizer(config)),
+        data=BrokenData(),
+        signals=None,
+        risk_gate=PreTradeRiskGate(_generous_limits(), Settings(), prices),
+        broker=SimulatedBroker(prices, starting_cash=100_000.0),
+        state_store=FileStateStore(tmp_path / "s.json"),
+        config=config,
+        prices=prices,
+        metrics=metrics,
+    )
+    assert loop.step(datetime(2026, 1, 1, tzinfo=UTC)).degraded
+    assert metrics.counter_value("atrading_steps_total", result="degraded") == 1
