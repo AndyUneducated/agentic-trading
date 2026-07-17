@@ -115,6 +115,22 @@ class PriorityThrottler:
 - 无前视（新闻 PIT）→ §4/§6。
 - Gateway 注入超时/限流 → 降级 + 成本熔断 → §3/§6。
 
+## 8b. 实现状态（离线骨架已落地）
+
+> 约束：本机算力有限 + 避免真实 LLM 调用。已落地**全部离线可测的结构**；真实网络/密钥路径就位但不在 CI 执行。
+
+| 模块 | 文件 | 状态 | 测试 |
+| --- | --- | --- | --- |
+| 成本预算 + 熔断 | `signals/budget.py` `CostBudget` | ✅ 已实现 | `test_budget.py`（日/累计上限、次日重置、熔断） |
+| AI Gateway | `signals/gateway.py` `AIGateway` | ✅ 已实现（重试/降级/缓存/预算熔断，实现 `LLMClient`） | `test_gateway.py`（降级、全失败、缓存、熔断） |
+| 优先级节流 | `signals/throttle.py` `PriorityThrottler` | ✅ 已实现 | `test_throttle.py`（择优、确定性、预算约束） |
+| 新闻源(PIT) | `signals/news.py` `InMemoryNewsSource` | ✅ 已实现（`published_at<=as_of`） | `test_news.py`（前视排除、symbol 过滤、确定序） |
+| 真实 LLM 适配 | `signals/providers.py` `OpenAICompatibleClient` + `deepseek_client`/`ollama_client` | ⏸️ 结构就位（stdlib urllib，OpenAI 兼容），**不在 CI 调用** | 契约级（离线）；真实调用待人工开关 |
+| 端到端 eval | 网关→提取器→`evaluate_signal` | ✅ 离线打通 | `test_m7_pipeline.py`（IC/命中率） |
+| 真实行情源 | `data/` 已有 `yfinance` 可选适配 | ⏸️ 待接（`data` extra，网络门控） | — |
+
+**待真人开关（避免烧钱/联网）**：`OpenAICompatibleClient.complete()` 的真实网络调用；真实信号样本外 vs 价量基线的实证实验（`docs/experiments/`）。骨架已保证真实后端一旦接入，提取器/策略/loop **零改动**即可评测。
+
 ## 9. 开放问题
 
 - 新闻/情绪数据源选型与成本（Financial Datasets API / FMP / 自建爬取合规性）。
