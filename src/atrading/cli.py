@@ -1,0 +1,160 @@
+"""atrading 命令行入口。
+
+子命令：
+  version   打印版本
+  gate      打印/校验安全护栏姿态（trading_mode / kill_switch / can_trade）
+  backtest  在（默认合成、离线可跑的）行情上跑确定性回测并打印指标
+
+设计原则：CLI 只做"编排 + 展示"，不含任何决策/风控逻辑——完全复用 `src` 内的确定性
+组件，保证 CLI 与库行为一致（回测-实盘同源的延伸）。合成数据仅用于烟囱测试与演示，
+**不构成任何真实 alpha 证据**（真实数据/实证见 docs/experiments/）。
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import random
+import sys
+from datetime import UTC, datetime, timedelta
+from importlib import metadata
+
+from atrading.backtest import BacktestRunner, CostModel, EqualWeightPolicy
+from atrading.config.settings import Settings
+from atrading.core.strategy_config import StrategyConfig
+from atrading.core.types import Bar
+from atrading.data import InMemoryDataSource
+from atrading.eval import max_drawdown, returns_from_equity, sharpe, total_return
+from atrading.logging_config import configure_logging, get_logger
+
+
+def _version() -> str:
+    try:
+        return metadata.version("atrading")
+    except metadata.PackageNotFoundError:
+        return "0.0.0+dev"
+
+
+def synthetic_bars(universe: list[str], *, days: int, seed: int) -> list[Bar]:
+    """确定性合成日线（种子化几何游走）。仅供离线演示/烟囱测试。"""
+    rng = random.Random(seed)
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    bars: list[Bar] = []
+    for i, symbol in enumerate(universe):
+        price = 100.0 * (1.0 + 0.1 * i)
+        for day in range(days):
+            price = max(1.0, price * (1.0 + 0.0003 + rng.gauss(0.0, 0.01)))
+            ts = start + timedelta(days=day)
+            bar = Bar(
+                symbol=symbol, ts=ts, open=price, high=price, low=price, close=price, volume=1.0
+            )
+            bars.append(bar)
+    return bars
+
+
+def _cmd_version(_args: argparse.Namespace) -> int:
+    print(f"atrading {_version()}")
+    return 0
+
+
+def _cmd_gate(args: argparse.Namespace) -> int:
+    settings = Settings()
+    posture = {
+        "trading_mode": settings.trading_mode,
+        "kill_switch": settings.kill_switch,
+        "can_trade": settings.can_trade,
+    }
+    if args.json:
+        print(json.dumps(posture))
+        return 0
+    print(f"trading_mode = {settings.trading_mode}")
+    print(f"kill_switch  = {settings.kill_switch}")
+    print(f"can_trade    = {settings.can_trade}")
+    if not settings.can_trade:
+        print("[warn] 当前不可下单（kill switch 开启或 live 未确认）——安全默认。")
+    return 0
+
+
+def _cmd_backtest(args: argparse.Namespace) -> int:
+    log = get_logger()
+    if args.config:
+        config = StrategyConfig.from_yaml(args.config)
+    else:
+        config = StrategyConfig(name="demo", universe=["AAA", "BBB", "CCC"], decision_freq="daily")
+
+    bars = synthetic_bars(config.universe, days=args.days, seed=args.seed)
+    result = BacktestRunner(
+        policy=EqualWeightPolicy(config.universe),
+        data=InMemoryDataSource(bars),
+        costs=CostModel(commission_bps=1.0, slippage_bps=5.0),
+        config=config,
+        seed=args.seed,
+    ).run(bars[0].ts, bars[-1].ts)
+
+    equity = result.equity_values()
+    rets = returns_from_equity(equity)
+    tr = total_return(equity)
+    mdd = max_drawdown(equity)
+    shp = sharpe(rets)
+
+    log.info(
+        "backtest_done",
+        strategy=config.name,
+        periods=len(equity),
+        total_return=round(tr, 4),
+        max_drawdown=round(mdd, 4),
+        sharpe=round(shp, 3),
+    )
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "strategy": config.name,
+                    "universe": config.universe,
+                    "periods": len(equity),
+                    "final_equity": round(result.final_equity, 2),
+                    "total_return": round(tr, 4),
+                    "max_drawdown": round(mdd, 4),
+                    "sharpe": round(shp, 3),
+                }
+            )
+        )
+        return 0
+    print(f"策略: {config.name}  标的: {', '.join(config.universe)}  周期: {len(equity)}")
+    print(f"总收益: {tr:+.2%}  最大回撤: {mdd:.2%}  Sharpe: {shp:.3f}")
+    print("[note] 合成数据仅供烟囱测试，非真实 alpha 证据（真实实证见 docs/experiments/）。")
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="atrading", description="Agentic trading — 混合架构交易研究系统 CLI"
+    )
+    parser.add_argument("--log-format", choices=["json", "console"], default="console")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_version = sub.add_parser("version", help="打印版本")
+    p_version.set_defaults(func=_cmd_version)
+
+    p_gate = sub.add_parser("gate", help="打印/校验安全护栏姿态")
+    p_gate.add_argument("--json", action="store_true", help="以 JSON 输出")
+    p_gate.set_defaults(func=_cmd_gate)
+
+    p_bt = sub.add_parser("backtest", help="在合成/配置行情上跑确定性回测")
+    p_bt.add_argument("--config", help="StrategyConfig YAML 路径（默认内置 demo）")
+    p_bt.add_argument("--days", type=int, default=180, help="合成天数")
+    p_bt.add_argument("--seed", type=int, default=7, help="随机种子（可复现）")
+    p_bt.add_argument("--json", action="store_true", help="以 JSON 输出")
+    p_bt.set_defaults(func=_cmd_backtest)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    configure_logging(fmt=args.log_format)
+    return int(args.func(args))
+
+
+if __name__ == "__main__":
+    sys.exit(main())
