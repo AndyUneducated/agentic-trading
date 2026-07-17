@@ -335,4 +335,10 @@ flowchart LR
   - [ ] 明确初始实盘资金上限与逐步放量/回滚规则；**人类明确签署**。
 - **交付物**：上线闸门评审报告（记分卡）+ go/no-go 决定 ADR（写入 `docs/decisions/`）+ 放量/回滚手册。
 - **Eval 增量**：**go-live 记分卡**聚合全部 eval 做单一放行判定（收口）。
-- **依赖**：M7、M8、M9。
+- **实现状态（治理内核已落地）**：
+  - ✅ `governance/golive.py`（`GoLiveGate`：记分卡全绿 + **人类明确批准** + KILL_SWITCH 关闭，三重红线，缺一即拒并列 blockers）。
+  - ✅ `governance/ramp.py`（`CapitalRampController` 放量/回滚状态机：paper→pilot→ramp→scaled 逐级晋级，回撤/drift 超阈自动降级，硬止损停机，停机需人工复位）。
+  - ✅ `governance/audit.py`（`AuditTrail` 哈希链防篡改审计追踪：signal→decision→order→fill 全量留痕 + `verify()` + jsonl 持久化）。
+  - ✅ 上线闸门 eval：`GoLiveScorecard`→`GoLiveGate` 全绿+批准才放行（`test_golive.py`）；共 14 项 M10 单测。
+  - 🔜 待真实基建：合规要件对接（市场准入/最佳执行/税务批次）、真实小额实盘签署与放量执行（人类闸门）。
+- **依赖**：M7、M8、M9。 → 技术方案 [tech-specs/M10-compliance-and-go-live.md](tech-specs/M10-compliance-and-go-live.md)、[ADR-0009](decisions/0009-offline-first-productionization.md)。
