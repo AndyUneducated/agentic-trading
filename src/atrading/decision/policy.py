@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from atrading.core.interfaces import DecisionContext
 from atrading.core.strategy_config import StrategyConfig
 from atrading.core.types import TargetWeights
@@ -35,15 +37,19 @@ class RulesDecisionPolicy:
         self._min_confidence = min_confidence
 
     def decide(self, ctx: DecisionContext) -> TargetWeights:
-        latest: dict[str, tuple[float, float]] = {}  # symbol -> (sentiment, confidence)
+        universe = set(self._config.universe)
+        # symbol -> (as_of, sentiment, confidence)；按 as_of 取最新，不依赖信号列表顺序。
+        latest: dict[str, tuple[datetime, float, float]] = {}
         for signal in ctx.signals:
-            if signal.name != "sentiment" or signal.symbol not in set(self._config.universe):
+            if signal.name != "sentiment" or signal.symbol not in universe:
                 continue
-            latest[signal.symbol] = (signal.value, signal.confidence)
+            prior = latest.get(signal.symbol)
+            if prior is None or signal.as_of >= prior[0]:
+                latest[signal.symbol] = (signal.as_of, signal.value, signal.confidence)
 
         selected = [
             symbol
-            for symbol, (sentiment, confidence) in latest.items()
+            for symbol, (_as_of, sentiment, confidence) in latest.items()
             if sentiment > self._sentiment_threshold and confidence >= self._min_confidence
         ]
         if not selected:
