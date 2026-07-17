@@ -120,6 +120,20 @@ flowchart LR
 - paper 连续 ≥ N 天无未捕获异常；重连/部分成交/拒单有处理与测试 → §4/§6。
 - 无订单绕过风控；对账检出注入不一致 → §3/§6。
 
+## 8b. 实现状态（离线执行真实性已落地；Nautilus 为后续真实基建）
+
+> 约束：本机算力有限，暂不引入 `nautilus_trader`（Rust 重依赖）。先落地**同协议、可离线测试的执行真实性**（§9 折中项已先行），把 Nautilus 采用留作真实基建阶段。
+
+| 模块 | 文件 | 状态 | 测试 |
+| --- | --- | --- | --- |
+| 成本模型（费用/滑点/冲击） | `execution/costs.py` `CommissionModel`/`SlippageModel` | ✅ 已实现（纯函数，回测/实盘共用） | `test_costs.py`（每股/bps/下限；方向；参与率冲击） |
+| 高保真 broker | `execution/realistic_broker.py` `RealisticBroker`（实现 `core.Broker`） | ✅ 已实现（延迟 + 部分成交 + 费用 + 滑点 + 幂等） | `test_realistic_broker.py`（7 例） |
+| 回测-实盘 parity | 无摩擦下 `RealisticBroker == SimulatedBroker` | ✅ 已实现 | `test_execution_parity.py`（同源 + 摩擦致有界 drift） |
+| Nautilus 采用 | `NautilusStrategyAdapter` / `ExecutionClient` | ⏸️ 待真实基建（重依赖 + 联网 paper） | 契约就位（`core.Broker` 可互换） |
+| 真实 paper 券商 | Alpaca paper / CCXT testnet 适配 | ⏸️ 待真实基建（联网 + 人工开关） | — |
+
+**要点**：`RealisticBroker` 与 `SimulatedBroker` 实现同一 `core.Broker` 协议且可互换——无摩擦配置下持仓/现金/权益完全一致（parity），显式配置费用/滑点/延迟后 drift 有界且完全归因于真实摩擦（ADR-0003）。这满足 M8"执行真实性"的离线可测目标；Nautilus/真实 paper 为后续真实基建，届时按同协议替换、决策代码零改。
+
 ## 9. 开放问题
 
 - Nautilus 许可（GPLv3 vs 商业）对本项目分发/使用的影响。
