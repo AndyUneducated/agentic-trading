@@ -1,6 +1,6 @@
 # 技术方案（Tech Specs）— 共享约定
 
-> 本目录为 M1–M6 的**详细技术方案**，外加跨阶段的 [EVAL-framework.md](EVAL-framework.md)。
+> 本目录为 M1–M10 的**详细技术方案**，外加跨阶段的 [EVAL-framework.md](EVAL-framework.md)。
 > 本文件承载所有技术方案共享的：技术栈、仓库结构、**核心接口契约**、AI-coding 工作流。各里程碑文档只写自己的增量，避免重复。
 
 ## 0. 阅读顺序与索引
@@ -15,8 +15,12 @@
 | [M4-llm-signal-layer.md](M4-llm-signal-layer.md) | M4 | LLM 信号层：客户端/提取器/缓存/信号评测/prompt 版本化 |
 | [M5-decision-execution-paper.md](M5-decision-execution-paper.md) | M5 | 决策层 + 预交易风控门 + 模拟盘执行 + 对账 + 崩溃恢复 |
 | [M6-experimentation-and-validation.md](M6-experimentation-and-validation.md) | M6 | 实验框架 + 样本外验证 + regime/drift 监控 + 开源基准对比 |
+| [M7-real-integrations.md](M7-real-integrations.md) | M7 | 真实数据源 + 真实 LLM + AI gateway + PIT 时序隔离（生产化） |
+| [M8-production-execution-engine.md](M8-production-execution-engine.md) | M8 | 采用 Nautilus 的生产执行引擎 + 真实 paper 券商（生产化） |
+| [M9-observability-and-ops.md](M9-observability-and-ops.md) | M9 | 指标/tracing/告警 + 容器化 + 密钥托管 + incident playbook（生产化） |
+| [M10-compliance-and-go-live.md](M10-compliance-and-go-live.md) | M10 | 合规要件 + 上线闸门记分卡 + 小额实盘/放量/回滚（生产化） |
 
-> 这些技术方案是**提案**；代码尚未实现。示例代码是"目标接口"，用于对齐设计，不是最终实现。
+> **状态**：M1–M6 + EVAL **已实现并全绿**（125 测试，离线优先）；示例代码与实际实现基本一致。**M7–M10 为提案**（生产化路线，见 [PRODUCTION-READINESS.md](../PRODUCTION-READINESS.md)），其示例代码是"目标接口"。
 
 ## 1. 技术栈（见 ADR-0004，Accepted）
 

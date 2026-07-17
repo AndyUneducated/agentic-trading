@@ -22,10 +22,17 @@ flowchart TD
   M3 --> M5["M5 规则决策层 + 模拟盘闭环"]
   M4 --> M5
   M5 --> M6["M6 系统化实验与盈利验证"]
-  M6 --> Gate{"上线闸门达标?"}
-  Gate -->|否| M6
-  Gate -->|是| P7["阶段7 工程架构与小额实盘 (另起计划)"]
+  M6 --> M7["M7 真实接入 MVP (数据+LLM)"]
+  M7 --> M8["M8 生产执行引擎 (采用 Nautilus)"]
+  M8 --> M9["M9 可观测性 + 运维就绪"]
+  M9 --> M10["M10 合规 + 上线闸门 + 小额实盘"]
+  classDef done fill:#1f6f3d,color:#fff,stroke:#134d29;
+  classDef todo fill:#333,color:#ddd,stroke:#666,stroke-dasharray:4 3;
+  class M0,M1,M2,M3,M4,M5,M6 done;
+  class M7,M8,M9,M10 todo;
 ```
+
+> M0–M6 + EVAL 已落地（离线优先，125 测试全绿）；**M7–M10 为生产化路线**，排序依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md) 与 [ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md)。
 
 | 里程碑 | 一句话目标 | 核心交付物 | 准出指标（关键项） |
 | --- | --- | --- | --- |
@@ -36,8 +43,10 @@ flowchart TD
 | M4 | LLM 能产出有用信号 | 信号提取器 + 信号评测 + Prompt 版本化 | 信号样本外显著优于零基线 |
 | M5 | 跑通模拟盘闭环 | 规则决策层 + 护栏 + 模拟盘连续运行 | 连续运行 N 天；每类护栏均触发验证 |
 | M6 | 验证是否真的盈利 | 实验框架 + 样本外验证 + drift 监控 | 最终验证集达 M0 指标；净收益为正 |
-| Gate | 决定是否上实盘 | 上线闸门记分卡 | 满足全部放行条件 + 人类签署 |
-| 阶段7 | 工程化与小额实盘 | （另起工程计划） | — |
+| **M7** | 接入真实 alpha 证据 | 真实数据源 + 真实 LLM + AI gateway | 真实信号样本外优于价量基线；成本可控 |
+| **M8** | 执行真实性 + 同源 | 采用 Nautilus + 真实 paper 券商 | 高保真回测；回测-实盘 parity；paper 连续稳定 |
+| **M9** | 可观测 + 可运维 | 指标/tracing/告警 + 容器化 + 密钥托管 | 关键告警可触发；一键部署；密钥不落盘 |
+| **M10** | 合规 + 小额实盘 | 审计/最佳执行 + 上线记分卡 + 逐步放量 | 记分卡全绿 + 人类签署；回滚预案演练通过 |
 
 ## Eval 体系演进（Progressive Eval System）
 
@@ -227,21 +236,88 @@ flowchart TD
 - **Eval 增量**：**样本外/过拟合评测 + 开源基准对照接口 + regime/drift 监控成型**，四层评测体系闭合（信号级/策略级/运行时/稳健性）。
 - **依赖**：M5。
 
-## 上线闸门（Go-live Gate：模拟盘 → 小额实盘）
+---
 
-- **目标**：客观决定是否投入真实资金。
-- **简要技术方案**：把前述各层 eval 聚合成单一"go-live 记分卡"，逐条判定。
-- **放行条件（全部满足）**：
-  - 连续 N 周模拟盘满足：超额收益 > 基准、最大回撤 < 上限、无重大护栏误触发。
-  - 样本外指标达标（含 DSR/PBO）。
-  - 监控/告警、异常处置预案（incident playbook）就位。
-  - live-vs-backtest drift 在阈值内。
-  - 明确初始实盘资金上限与逐步放量规则。
-  - 人类明确签署批准。
-- **交付物**：上线闸门评审报告（go-live 记分卡）+ go/no-go 决定记录（写入 `docs/decisions/`）。
-- **Eval 增量**：**go-live 记分卡**——聚合全部 eval 做单一放行判定。
+# 生产化里程碑（M7–M10）
 
-## 阶段 7 · 工程架构与小额实盘（另起计划）
+> M0–M6 交付了**离线优先的研究/验证骨架**；M7–M10 把它推进到**能碰真钱的生产级 agent**。排序原则（[ADR-0008](decisions/0008-production-roadmap-and-oss-adoption.md)）：**先真实 alpha 证据 → 再执行真实性 → 并行运维 → 最后合规上线**。差距依据见 [PRODUCTION-READINESS.md](PRODUCTION-READINESS.md)。
 
-- 达成上线闸门后，另起一份**工程设计计划**：模块划分、数据管道、执行引擎、部署与可观测性、实盘接入、逐步放量与回滚预案。本里程碑文档不展开工程实现细节。
-- 需在此阶段**强化到生产级**（把 M5 的雏形做扎实，见 [LANDSCAPE.md](LANDSCAPE.md)）：完整执行对账、崩溃恢复/状态持久化（如 Redis）、预交易风控引擎、回测-实盘代码零分叉、集中式日志/监控/告警与优雅停机、实盘密钥隔离。
+```mermaid
+flowchart LR
+  M6["M6 离线验证完成"] --> M7["M7 真实接入 MVP<br/>(数据+LLM, 低频小预算)"]
+  M7 --> M8["M8 生产执行引擎<br/>(采用 Nautilus + 真实 paper)"]
+  M8 --> M9["M9 可观测性 + 运维<br/>(与 M8 可并行)"]
+  M8 --> M10["M10 合规 + 上线闸门 + 小额实盘"]
+  M9 --> M10
+```
+
+| 里程碑 | 紧迫度 | 核心开源参考 | 为何是这个顺序 |
+| --- | --- | --- | --- |
+| M7 真实接入 | 🔴 最高 | TradingAgents / ai-hedge-fund / FinRL-X（信号+数据回退） | 没有真实 alpha 证据，后续重工程都是过早优化 |
+| M8 执行引擎 | 🟠 高 | **Nautilus**（首选）/ Lean / freqtrade | 一次拿到执行保真 + 回测-实盘同源 |
+| M9 运维 | 🟠 高（与 M8 并行） | Prometheus/Grafana/OTel、Docker | 碰真钱的硬前置 |
+| M10 合规上线 | 🟡 最后 | SEC 15c3-5 / MiFID II / Lean 券商集成 | 前置全绿后才逐步放量 |
+
+## M7 · 真实接入 MVP（数据 + LLM，低频小预算）
+
+- **目标**：把 stub 换成真实数据源与真实 LLM，让 M4/M6 的**实证类 Exit Gate 真正可判定**——真实 LLM 信号在样本外是否优于纯价量基线。
+- **简要技术方案**：按 `core` 现有 Protocol **替换实现**（不改调用方）。新增 `LLMClient` 真实适配（OpenAI/DeepSeek/本地 Ollama）+ **AI gateway**（失败转移/路由/缓存/**预算熔断**）；真实行情 + 新闻/财报数据源（带 `published_at`，**PIT 时序隔离**）；**优先级队列 + 节流**（异常大者先算，高波动跳过并标注"AI paused"，避免过期上下文与成本爆炸）。
+- **交付物**：
+  - 真实 `LLMClient`（≥1 便宜后端 + 可选 1 昂贵后端）+ AI gateway（重试/超时/降级/成本熔断）。
+  - 真实 `DataSource`：行情（yfinance/Alpaca）+ 新闻/情绪（带时间戳），**严格 `published_at ≤ as_of`**。
+  - 成本经济学落地：单位信号成本统计 + 预算上限（对齐 CHARTER §8）。
+  - 至少一个开源框架（TradingAgents/ai-hedge-fund）产出封装为 `oss_baseline_from_equity` 的对照。
+- **准出指标（Exit Gate）**：
+  - [ ] 真实 LLM 信号在**样本外**的 IC/命中率**显著优于零基线且优于纯价量基线**（`evaluate_signal`）。
+  - [ ] 便宜 vs 昂贵后端的质量-成本对比有结论；单位信号成本 ≤ 预算。
+  - [ ] 无前视：新闻 PIT 隔离有测试（构造未来文档不得进入历史决策）。
+  - [ ] AI gateway：注入供应商超时/限流 → 安全降级不崩溃、成本熔断生效。
+- **Eval 增量**：信号级评测接入**真实**数据；OSS 对照基线实证。
+- **风险**：公开信息 alpha 常被定价（[LANDSCAPE](LANDSCAPE.md)）；LLM 保守偏差。若 M7 证否 Edge，**这是有价值的负结论**，据此调整假设而非硬上工程。
+- **依赖**：M4、M6。 → 技术方案 [tech-specs/M7-real-integrations.md](tech-specs/M7-real-integrations.md)。
+
+## M8 · 生产级执行引擎（采用 Nautilus）+ 真实 paper 券商
+
+- **目标**：获得**执行真实性**（订单簿/延迟/部分成交/高级单）与**回测-实盘同源**，把 M5 的模拟雏形升级为生产级。
+- **简要技术方案**：采用 [NautilusTrader](https://nautilustrader.io/) 作为执行/回测引擎，将我方 `RulesDecisionPolicy` 以其 `Strategy`/`Actor` 承载，`core.Broker` 适配其 `ExecutionClient`；保留我方 `PreTradeRiskGate` 语义（或映射到其 `RiskEngine`）。接真实 paper 券商（Alpaca paper / CCXT testnet）。
+- **交付物**：
+  - Nautilus 适配层：DataSource/Broker/Clock ↔ Nautilus 组件；决策代码零改。
+  - 真实 paper 券商适配 + 部分成交/拒单/重连处理。
+  - 执行保真回测（费用/延迟/滑点/订单簿）替代 bps 换手近似。
+  - 事件溯源回放用于审计/调试。
+- **准出指标（Exit Gate）**：
+  - [ ] 同一 `DecisionPolicy` 在 Nautilus 回测与 paper 实盘 parity（drift 仅来自真实摩擦）。
+  - [ ] paper 连续运行 ≥ N 天无未捕获异常；重连/部分成交/拒单均有处理与测试。
+  - [ ] 无订单绕过风控（沿用 M5 不变量）；对账检出注入不一致。
+- **Eval 增量**：真实成本/滑点下的策略级评测；live-vs-backtest drift 实测。
+- **依赖**：M5、M7。 → 技术方案 [tech-specs/M8-production-execution-engine.md](tech-specs/M8-production-execution-engine.md)。
+
+## M9 · 可观测性与运维就绪（可与 M8 并行）
+
+- **目标**：让系统"看得见、跑得住、可运维"——碰真钱前的硬前置。
+- **简要技术方案**：指标（Prometheus）+ 看板（Grafana）+ 分布式 tracing（OpenTelemetry，覆盖每个 LLM/工具调用 span）；告警（护栏触发 / 对账不一致 / drift 超阈 / LLM 成本超预算）；容器化（Docker）+ 密钥托管（不落盘）+ incident playbook + 优雅停机/崩溃恢复演练。
+- **交付物**：
+  - 指标埋点（延迟/错误率/成本/护栏计数/drift）+ 一套 Grafana 面板。
+  - 关键告警规则 + 通道（如 Telegram/邮件）。
+  - Dockerfile + 部署脚本；密钥托管方案（Vault/云 KMS，替代明文 `.env`）。
+  - Incident playbook（feed 异常/券商断连/成本失控/护栏误触发的处置）。
+- **准出指标（Exit Gate）**：
+  - [ ] 每类关键异常可触发告警（注入验证）。
+  - [ ] 一键容器化部署可复现；密钥不落盘、不入库。
+  - [ ] 崩溃/断连演练：自动恢复且无重复/丢单。
+- **Eval 增量**：drift/regime **看板化** + 成本监控上线。
+- **依赖**：M5（可与 M8 并行推进）。
+
+## M10 · 合规 + 上线闸门 + 小额实盘
+
+- **目标**：客观决定是否投入真实资金，并以最小风险逐步放量。
+- **简要技术方案**：把四层 eval 聚合为单一 `GoLiveScorecard` 逐条判定；补合规要件（市场准入/最佳执行/审计追踪/税务批次）；小额实盘 + 逐步放量 + 回滚预案。
+- **放行条件（全部满足，写入 `GoLiveScorecard`）**：
+  - [ ] 连续 N 周 paper 满足：超额 > 基准、回撤 < 上限、无重大护栏误触发。
+  - [ ] 最终留出集样本外达 CHARTER 指标（含 DSR/PBO），成本后净收益为正。
+  - [ ] live-vs-backtest drift 在阈值内；regime 刷新/退役条件已定义。
+  - [ ] 监控/告警/incident playbook 就位（M9）；合规要件齐备。
+  - [ ] 明确初始实盘资金上限与逐步放量/回滚规则；**人类明确签署**。
+- **交付物**：上线闸门评审报告（记分卡）+ go/no-go 决定 ADR（写入 `docs/decisions/`）+ 放量/回滚手册。
+- **Eval 增量**：**go-live 记分卡**聚合全部 eval 做单一放行判定（收口）。
+- **依赖**：M7、M8、M9。

@@ -38,10 +38,14 @@
 ## 5. 关键文档地图
 
 - 项目章程与成功标准：`docs/PROJECT_CHARTER.md`
+- 系统架构与流程图：`docs/ARCHITECTURE.md`
 - 里程碑与交付物：`docs/MILESTONES.md`
+- 生产就绪度与差距：`docs/PRODUCTION-READINESS.md`
+- 竞品/生产对标：`docs/LANDSCAPE.md`
+- 详细技术方案：`docs/tech-specs/`（M1–M8 + EVAL）
 - 术语与数据字典：`docs/GLOSSARY.md`
 - 规格：`docs/specs/`（strategy-hypothesis / backtest-eval / llm-signal）
-- 决策记录：`docs/decisions/`
+- 决策记录：`docs/decisions/`（ADR-0001 … 0008）
 - 实验日志：`docs/experiments/`
 - 持久规则：`.cursor/rules/`
 
@@ -53,4 +57,6 @@
 
 ## 7. 当前阶段
 
-规划期。工程代码尚未引入；先沉淀章程、规格、评测口径与里程碑。参见 `docs/MILESTONES.md`。
+**M0–M6 + EVAL 已落地（离线优先，125 测试全绿）**：契约 → PIT 数据 + 回测 → 防过拟合评测 → LLM 信号层（离线 stub）→ 决策 + 预交易风控门 + 模拟盘闭环 → 实验框架 + regime/drift 监控。代码在 `src/atrading/`。
+
+**下一步：生产化路线 M7–M10**（见 `docs/MILESTONES.md` 与 `docs/PRODUCTION-READINESS.md`）：M7 真实接入（数据+LLM）→ M8 生产执行引擎（采用 Nautilus）→ M9 可观测性/运维 → M10 合规 + 小额实盘。排序依据 `docs/decisions/0008-production-roadmap-and-oss-adoption.md`（**先真实 alpha 证据，后重工程**）。
