@@ -117,7 +117,7 @@ flowchart LR
 ## 9. 与 AI-coding 工作流对齐
 
 - **契约先行**：`MetricsRegistry` 为稳定接口，后端（零依赖/prometheus_client/OTel）可替换。
-- **测试同行**：每个指标有断言（见 §8）；埋点默认关闭（`metrics=None`），新增指标/告警/tracing 测试后套件 189 全绿。
+- **测试同行**：每个指标有断言（见 §8）；埋点默认关闭（`metrics=None`），新增指标/告警/tracing 测试后套件 192 全绿。
 - **小 PR**：按 §7 逐条提交（Conventional Commits）。
 - **可复现**：指标为纯累加/覆盖，确定性可断言。
 
