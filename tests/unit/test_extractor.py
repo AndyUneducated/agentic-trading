@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from atrading.monitoring import MetricsRegistry
 from atrading.signals import (
     Document,
     KeywordLLMClient,
@@ -12,6 +13,7 @@ from atrading.signals import (
     SentimentExtractor,
     load_prompt,
 )
+from atrading.signals.cache import SignalCache
 
 
 def _prompt():  # type: ignore[no-untyped-def]
@@ -95,3 +97,21 @@ def test_exhausted_retries_raise() -> None:
     extractor = SentimentExtractor(AlwaysBad(), _prompt(), max_retries=1)
     with pytest.raises(ValueError, match="结构化解析"):
         extractor.extract(symbol="AAPL", as_of=datetime(2026, 1, 5, tzinfo=UTC), documents=[])
+
+
+def test_metrics_records_cost_and_cache() -> None:
+    metrics = MetricsRegistry()
+    cache = SignalCache()
+    extractor = SentimentExtractor(KeywordLLMClient(), _prompt(), cache=cache, metrics=metrics)
+    as_of = datetime(2026, 1, 2, tzinfo=UTC)
+    docs = [_doc("beat strong surge record profit", day=1)]
+
+    first = extractor.extract(symbol="AAPL", as_of=as_of, documents=docs)  # miss → 真正提取
+    assert not first.cache_hit
+    assert metrics.counter_value("atrading_signal_cache_total", result="miss") == 1
+    assert metrics.counter_value("atrading_llm_tokens_total", kind="input") >= 0
+
+    second = extractor.extract(symbol="AAPL", as_of=as_of, documents=docs)  # 同输入 → 命中缓存
+    assert second.cache_hit
+    assert metrics.counter_value("atrading_signal_cache_total", result="hit") == 1
+    assert metrics.counter_value("atrading_signal_cache_total", result="miss") == 1

@@ -16,6 +16,7 @@ from datetime import datetime
 from pydantic import BaseModel, ValidationError
 
 from atrading.core.signal_schema import SignalSchemaV1
+from atrading.monitoring.metrics import MetricsRegistry
 from atrading.signals.cache import SignalCache, input_fingerprint
 from atrading.signals.documents import Document
 from atrading.signals.llm_client import LLMClient
@@ -41,11 +42,13 @@ class SentimentExtractor:
         *,
         max_retries: int = 2,
         cache: SignalCache | None = None,
+        metrics: MetricsRegistry | None = None,
     ) -> None:
         self._client = client
         self._prompt = prompt
         self._max_retries = max_retries
         self._cache = cache
+        self._metrics = metrics
 
     def extract(
         self, *, symbol: str, as_of: datetime, documents: Sequence[Document]
@@ -62,6 +65,8 @@ class SentimentExtractor:
         if self._cache is not None:
             cached = self._cache.get(fingerprint)
             if cached is not None:
+                if self._metrics is not None:
+                    self._metrics.inc("atrading_signal_cache_total", result="hit")
                 return ExtractionResult(
                     signal=cached,
                     cost_usd=0.0,
@@ -74,6 +79,9 @@ class SentimentExtractor:
         block, suspicious = build_documents_block(pit_docs)
         system, user = self._prompt.render(symbol=symbol, as_of=as_of, documents_block=block)
         draft, model, cost, in_tok, out_tok = self._call_with_retry(system, user)
+        self._record_extraction(
+            model=model, cost=cost, in_tok=in_tok, out_tok=out_tok, suspicious=suspicious
+        )
 
         signal = SignalSchemaV1(
             symbol=symbol,
@@ -97,6 +105,18 @@ class SentimentExtractor:
             suspicious_documents=suspicious,
             cache_hit=False,
         )
+
+    def _record_extraction(
+        self, *, model: str, cost: float, in_tok: int, out_tok: int, suspicious: int
+    ) -> None:
+        if self._metrics is None:
+            return
+        self._metrics.inc("atrading_signal_cache_total", result="miss")
+        self._metrics.inc("atrading_llm_cost_usd_total", cost, model=model)
+        self._metrics.inc("atrading_llm_tokens_total", float(in_tok), kind="input")
+        self._metrics.inc("atrading_llm_tokens_total", float(out_tok), kind="output")
+        if suspicious:
+            self._metrics.inc("atrading_suspicious_docs_total", float(suspicious))
 
     def _call_with_retry(self, system: str, user: str) -> tuple[SignalDraft, str, float, int, int]:
         last_error: Exception | None = None

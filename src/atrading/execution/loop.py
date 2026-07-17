@@ -7,6 +7,7 @@ Broker/Clock。任何一步异常 → **安全降级**（本步不交易，记�
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
@@ -23,6 +24,7 @@ from atrading.core.types import Bar, Order
 from atrading.execution.order_gen import weights_to_orders
 from atrading.execution.reconcile import Reconciler
 from atrading.execution.state_store import EngineState, StateStore
+from atrading.monitoring.metrics import MetricsRegistry
 from atrading.risk.gate import PreTradeRiskGate
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -51,6 +53,7 @@ class TradingLoop:
         config: StrategyConfig,
         prices: dict[str, float],
         min_notional: float = 1.0,
+        metrics: MetricsRegistry | None = None,
     ) -> None:
         self._policy = policy
         self._data = data
@@ -61,6 +64,7 @@ class TradingLoop:
         self._config = config
         self._prices = prices
         self._min_notional = min_notional
+        self._metrics = metrics
         self._state = state_store.load() or EngineState()
         self._reconciler = Reconciler()
 
@@ -80,6 +84,7 @@ class TradingLoop:
         return history
 
     def step(self, now: datetime) -> StepReport:
+        started = time.perf_counter()
         try:
             history = self._refresh_prices_and_history(now)
             portfolio = self._broker.get_positions()
@@ -120,6 +125,12 @@ class TradingLoop:
             report = self._reconciler.reconcile(self._broker, self._state)
             self._state_store.save(self._state)
 
+            self._record_ok(
+                elapsed=time.perf_counter() - started,
+                newly=newly,
+                denied=decision.denied,
+                mismatch=len(report.unexpected_fills) + len(report.position_mismatches),
+            )
             return StepReport(
                 ts=now,
                 target_weights=dict(target.weights),
@@ -128,7 +139,27 @@ class TradingLoop:
                 reconcile_ok=report.ok,
             )
         except Exception as error:  # noqa: BLE001 — 主循环必须安全降级，不得整体崩溃
+            if self._metrics is not None:
+                self._metrics.inc("atrading_steps_total", result="degraded")
             return StepReport(ts=now, degraded=True, error=str(error))
+
+    def _record_ok(
+        self,
+        *,
+        elapsed: float,
+        newly: list[str],
+        denied: list[tuple[Order, str]],
+        mismatch: int,
+    ) -> None:
+        if self._metrics is None:
+            return
+        self._metrics.observe("atrading_decision_seconds", elapsed)
+        self._metrics.inc("atrading_steps_total", result="ok")
+        if newly:
+            self._metrics.inc("atrading_orders_submitted_total", float(len(newly)))
+        for _order, reason in denied:
+            self._metrics.inc("atrading_risk_denials_total", reason=reason)
+        self._metrics.set("atrading_reconcile_mismatch", float(mismatch))
 
     def run(self, timestamps: list[datetime]) -> list[StepReport]:
         return [self.step(ts) for ts in timestamps]
