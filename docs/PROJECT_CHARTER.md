@@ -40,6 +40,23 @@
 - 单位收益的 LLM/数据成本长期高于收益。
 - `TODO(其他红线)`。
 
+```mermaid
+flowchart TD
+  OOS["样本外表现 (扣成本)"] --> Q1{"同时跑赢<br/>买入持有 + 价量 + OSS?"}
+  Q1 -->|否| FAIL["证否 Edge → 修正/退役 (记录负结论)"]
+  Q1 -->|是| Q2{"DSR/PBO 达标?<br/>(非过拟合)"}
+  Q2 -->|否| FAIL
+  Q2 -->|是| Q3{"回撤 < 上限?"}
+  Q3 -->|否| FAIL
+  Q3 -->|是| Q4{"drift 在阈内?<br/>(实盘≈回测)"}
+  Q4 -->|否| FAIL
+  Q4 -->|是| PASS["满足成功指标 → 进入上线闸门"]
+  classDef fail fill:#7a1f1f,color:#fff;
+  classDef pass fill:#1f6f3d,color:#fff;
+  class FAIL fail;
+  class PASS pass;
+```
+
 ## 6. 核心假设（Edge）与证伪方式
 
 - **假设**：LLM 对非结构化信息（新闻、财报、公告、情绪）的处理能提供传统纯价量因子之外的增量信息优势。

@@ -8,6 +8,25 @@
 - 输出：结构化信号/因子，交给决策层。
 - 明确不做：不产生订单、不决定仓位、不触碰执行。
 
+```mermaid
+flowchart LR
+  DOC["Document<br/>(published_at)"] --> PIT{"published_at ≤ as_of?"}
+  PIT -->|否, 丢弃| X["无未来数据"]
+  PIT -->|是| SAN["sanitize<br/>(注入防护)"]
+  SAN --> RENDER["版本化 prompt render"]
+  RENDER --> LLM["LLMClient (temp=0)"]
+  LLM --> PARSE["parse → SignalDraft<br/>(带重试)"]
+  PARSE --> PROMO["提取器补齐<br/>symbol/as_of/model/prompt 版本"]
+  PROMO --> SIG["SignalSchemaV1"]
+  PROMO -. 指纹去重 .-> CACHE[("SignalCache")]
+  PROMO -. 成本/留痕 .-> LOG[("SignalLog")]
+  SIG --> DEC["决策层 (不下单由此层负责)"]
+  classDef red fill:#7a1f1f,color:#fff;
+  class DEC red;
+```
+
+> 红线：LLM 仅到 `SignalSchemaV1` 为止；`symbol/as_of/版本号`由**提取器**（确定性代码）补齐，而非 LLM 自述，保证 PIT 与留痕可信。
+
 ## 2. 输入规格
 
 | 来源 | 内容 | 频率 | PIT 处理 |

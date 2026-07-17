@@ -6,6 +6,20 @@
 
 提供**可复现、抗过拟合、含真实成本**的评测，作为所有策略/信号改动的客观裁判（等价于软件项目的测试套件）。
 
+```mermaid
+flowchart TD
+  DATA["PIT 数据 (无未来/含退市)"] --> BT["确定性回测 (成本模型)"]
+  BT --> IS["样本内调参"]
+  IS --> WF["walk-forward + purged/embargo CV"]
+  WF --> HG{"HoldoutGuard<br/>最终留出集 (永不调参)"}
+  HG --> OF["DSR / PBO<br/>(按 n_trials 惩罚多重检验)"]
+  OF --> BASE{"同时跑赢<br/>zero / price-only / buy-hold / OSS?"}
+  BASE -->|否| REJECT["拒绝: 无 Edge 或过拟合"]
+  BASE -->|是| REPORT["评测报告 → GoLiveScorecard"]
+  classDef guard fill:#5a3d1f,color:#fff;
+  class HG,OF guard;
+```
+
 ## 2. 数据层
 
 - 数据源与存储格式：`TODO`
