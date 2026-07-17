@@ -84,7 +84,9 @@ class TradingLoop:
             history = self._refresh_prices_and_history(now)
             portfolio = self._broker.get_positions()
 
-            if self._state.day_start_equity is None:
+            # 日亏熔断需"每日"重置：跨自然日则以当日开盘权益为基线。
+            is_new_day = self._state.last_ts is None or now.date() > self._state.last_ts.date()
+            if self._state.day_start_equity is None or is_new_day:
                 self._state.day_start_equity = portfolio.equity
             self._risk_gate.set_day_start_equity(self._state.day_start_equity)
 
@@ -110,12 +112,12 @@ class TradingLoop:
                 newly.append(order.client_order_id)
 
             updated = self._broker.get_positions()
-            report = self._reconciler.reconcile(self._broker, self._state)
-
             self._state.positions = dict(updated.positions)
             self._state.cash = updated.cash
             self._state.submitted_order_ids = sorted(submitted_set)
             self._state.last_ts = now
+            # 先记录本步提交，再对账：自己刚成交的订单不应被误判为"意外成交"。
+            report = self._reconciler.reconcile(self._broker, self._state)
             self._state_store.save(self._state)
 
             return StepReport(

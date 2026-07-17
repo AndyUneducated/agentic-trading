@@ -134,6 +134,56 @@ def test_crash_recovery_no_duplicate_orders(tmp_path: Path) -> None:
     assert len(broker.get_fills(datetime(1970, 1, 1, tzinfo=UTC))) == 1  # 无重复成交
 
 
+def test_reconcile_ok_on_normal_trading_step(tmp_path: Path) -> None:
+    # 回归：自己刚提交并成交的订单不得被误判为"意外成交"（reconcile_ok 应为 True）。
+    prices: dict[str, float] = {}
+    broker = SimulatedBroker(prices, starting_cash=100_000.0)
+    config = _config()
+    loop = TradingLoop(
+        policy=RulesDecisionPolicy(config, PassthroughSizer(config)),
+        data=InMemoryDataSource(_series("AAA", [100.0, 101.0])),
+        signals=LLMSignalSource([_signal("AAA", 0.8)]),
+        risk_gate=PreTradeRiskGate(_generous_limits(), Settings(), prices),
+        broker=broker,
+        state_store=FileStateStore(tmp_path / "s.json"),
+        config=config,
+        prices=prices,
+    )
+    report = loop.step(datetime(2026, 1, 1, tzinfo=UTC))
+    assert report.submitted_order_ids  # 确有下单
+    assert report.reconcile_ok  # 且对账通过（无误报）
+
+
+def test_reconcile_detects_ghost_fill_through_loop(tmp_path: Path) -> None:
+    from atrading.core.types import Fill
+
+    prices: dict[str, float] = {}
+    broker = SimulatedBroker(prices, starting_cash=100_000.0)
+    config = _config()
+    # 券商侧"凭空多出"一笔我们从未提交的成交。
+    broker.inject_fill(
+        Fill(
+            client_order_id="ghost",
+            symbol="AAA",
+            qty=1.0,
+            price=100.0,
+            ts=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+    loop = TradingLoop(
+        policy=RulesDecisionPolicy(config, PassthroughSizer(config)),
+        data=InMemoryDataSource(_series("AAA", [100.0, 101.0])),
+        signals=None,
+        risk_gate=PreTradeRiskGate(_generous_limits(), Settings(), prices),
+        broker=broker,
+        state_store=FileStateStore(tmp_path / "s.json"),
+        config=config,
+        prices=prices,
+    )
+    report = loop.step(datetime(2026, 1, 1, tzinfo=UTC))
+    assert not report.reconcile_ok  # 意外成交被检出
+
+
 def test_backtest_live_parity_same_target_weights(tmp_path: Path) -> None:
     config = StrategyConfig(name="parity", universe=["AAA", "BBB"], decision_freq="daily")
     bars = _series("AAA", [100.0, 102.0, 104.0, 106.0]) + _series("BBB", [100.0, 99.0, 98.0, 97.0])
