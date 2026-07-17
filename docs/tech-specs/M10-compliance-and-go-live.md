@@ -104,7 +104,7 @@ flowchart LR
 | go-live 记分卡聚合 | `eval/scorecard.py` `GoLiveScorecard`（复用） | ✅ 已实现（四层 eval 硬门槛收口） | `test_scorecard.py` + `test_golive.py` |
 | 合规要件 / 真实签署放量 | 市场准入/最佳执行/税务批次/小额实盘 | 🔜 待真实基建（依赖 M7/M8 真实接入 + 人类闸门） | — |
 
-> 安全红线已在代码中强制：`GoLiveGate.allowed` 要求记分卡全绿 **且** 人类明确批准 **且** KILL_SWITCH 关闭——缺省 `human_approved=False`（安全默认），绝不自动上线（ADR-0001/交易安全护栏）。全量套件 192 测试全绿。
+> 安全红线已在代码中强制：`GoLiveGate.allowed` 要求记分卡全绿 **且** 人类明确批准 **且** KILL_SWITCH 关闭——缺省 `human_approved=False`（安全默认），绝不自动上线（ADR-0001/交易安全护栏）。全量套件 197 测试全绿。
 
 ## 8. 开放问题
 

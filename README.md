@@ -8,13 +8,17 @@
 ![Pydantic v2](https://img.shields.io/badge/models-pydantic%20v2-E92063?logo=pydantic&logoColor=white)
 ![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)
 ![mypy](https://img.shields.io/badge/types-mypy%20strict-2A6DB2)
-![pytest](https://img.shields.io/badge/tests-192%20passed-3EA639?logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/tests-197%20passed-3EA639?logo=pytest&logoColor=white)
 [![CI](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml)
 ![Trading mode](https://img.shields.io/badge/trading__mode-paper%20(default)-orange)
 ![Status](https://img.shields.io/badge/status-research%20%2F%20offline--first-blue)
-![License](https://img.shields.io/badge/license-TBD-lightgrey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > ⚠️ **免责声明**：本项目仅用于个人研究，**不构成任何投资建议**。默认一切走模拟盘（`TRADING_MODE=paper`）；未经明确人类批准，绝不接入真实资金。加密货币与股票交易存在本金损失风险。
+
+![离线回测权益曲线示意](docs/assets/equity_curve.png)
+
+> 上图由 `uv run --extra viz python examples/plot_equity.py` 生成，基于**离线合成数据**，仅演示回测引擎可用；**不构成任何真实 alpha 证据**（真实数据实证见 `docs/experiments/`）。
 
 ---
 
@@ -46,7 +50,7 @@
 | **标的** | 美股、ETF、加密货币（先聚焦少量高流动性标的）。 |
 | **资金路径** | 回测 → 模拟盘验证 → 达标后小额实盘 → 逐步放量。 |
 | **架构红线** | 运行时 LLM 只输出信号；决策与执行只在确定性层（见 [ADR-0001](docs/decisions/0001-llm-positioning-hybrid.md)）。 |
-| **当前状态** | M1–M10 **离线内核已全部落地并全绿**（192 测试）；**离线优先**：真实 LLM / 数据 / 券商 / Nautilus / 合规签署等真实基建收敛到"人类开关"后（见 [ADR-0009](docs/decisions/0009-offline-first-productionization.md)）。 |
+| **当前状态** | M1–M10 **离线内核已全部落地并全绿**（197 测试）；**离线优先**：真实 LLM / 数据 / 券商 / Nautilus / 合规签署等真实基建收敛到"人类开关"后（见 [ADR-0009](docs/decisions/0009-offline-first-productionization.md)）。 |
 | **核心理念** | 评测即测试（无评测不合并）、规格先行、单变量实验、防过拟合为一等公民、回测-实盘一致。 |
 
 **与"让 LLM 自主交易"的关键区别**：业界 2026 的共识是 LLM 太慢（ms–s 级），须"hot path（确定性执行）/ AI path（LLM 异步生成信号）"解耦——我们的混合红线正是这一范式。
@@ -345,7 +349,7 @@ uv sync --dev
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run mypy
-uv run pytest            # 192 passed
+uv run pytest            # 197 passed
 
 # 仅跑 golden 已知答案回归
 uv run pytest -m golden
@@ -355,6 +359,33 @@ cp .env.example .env
 ```
 
 > 本仓库**开箱即跑、零联网、零 LLM 调用**：`KeywordLLMClient` / `SimulatedBroker` / `InMemoryDataSource` 让整条信号→决策→执行→评测链路可离线复现。
+
+### 命令行 (CLI)
+
+安装后提供 `atrading` 命令（`uv run atrading <子命令>`）：
+
+| 命令 | 作用 |
+| --- | --- |
+| `atrading version` | 打印版本 |
+| `atrading gate [--json]` | 打印/校验安全护栏姿态（`trading_mode` / `kill_switch` / `can_trade`） |
+| `atrading backtest [--config <yaml>] [--days N] [--seed S] [--json]` | 在合成/配置行情上跑确定性回测并打印指标 |
+
+```bash
+uv run atrading gate
+uv run atrading backtest --config configs/strategies/mvp.yaml --days 180 --json
+```
+
+> CLI 只做"编排 + 展示"，复用 `src` 内确定性组件；合成数据仅供烟囱测试，**非真实 alpha 证据**。
+
+### 可运行示例（`examples/`）
+
+`examples/` 下是**独立可跑**的脚本（详见 [examples/README.md](examples/README.md)），与 §13 一一对应：
+
+```bash
+uv run python examples/01_offline_backtest.py     # 离线回测
+uv run python examples/03_paper_loop.py           # 完整模拟盘闭环
+uv run --extra viz python examples/plot_equity.py # 生成权益曲线图
+```
 
 ### 端到端最小示例（离线回测）
 
@@ -545,16 +576,20 @@ print([(s.name, s.parent_id) for s in tracer.finished()])      # 子 span 链接
 .
 ├── AGENTS.md                  # AI 代理顶层上下文（最先读）
 ├── README.md
-├── pyproject.toml             # 依赖 + ruff/mypy/pytest 配置
+├── LICENSE                    # MIT
+├── CONTRIBUTING.md · SECURITY.md · CODE_OF_CONDUCT.md
+├── pyproject.toml             # 依赖 + ruff/mypy/pytest + CLI 入口(atrading)
+├── Dockerfile                 # 可复现运行环境
 ├── .cursor/rules/             # 持久化规则（安全/严谨性/工作流）
-├── .github/workflows/ci.yml   # quality · eval-smoke · gitleaks
+├── .github/                   # workflows/ci.yml · ISSUE/PR 模板 · dependabot
 ├── configs/                   # 运行/策略配置（paper.yaml, strategies/）
 ├── prompts/                   # 版本化 prompt（.md + .meta.yaml）
-├── src/atrading/              # 源码（core/config/data/backtest/signals/
-│                              #        decision/risk/execution/eval/
-│                              #        experiments/monitoring/governance）
+├── examples/                  # 独立可跑的离线示例（对应 README §13）
+├── src/atrading/              # 源码（core/config/data/backtest/signals/decision/
+│                              #        risk/execution/eval/experiments/monitoring/
+│                              #        governance）+ cli.py · logging_config.py
 ├── tests/                     # unit/ + golden/
-└── docs/                      # 章程/里程碑/规格/决策/实验/技术方案
+└── docs/                      # 章程/里程碑/规格/决策/实验/技术方案（+ assets/）
 ```
 
 ---
@@ -564,6 +599,8 @@ print([(s.name, s.parent_id) for s in tracer.finished()])      # 子 span 链接
 | 文档 | 作用 |
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | 给 AI 编码代理的顶层上下文与工作约定（**最先读**） |
+| [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 贡献指南 / 安全策略 / 行为准则 |
+| [examples/](examples/) | 独立可跑的离线示例脚本 |
 | [docs/PROJECT_CHARTER.md](docs/PROJECT_CHARTER.md) | 项目章程：成功/失败标准、边界、约束 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 系统架构与关键流程图（模块依赖 / 事件流 / 数据生命周期） |
 | [docs/MILESTONES.md](docs/MILESTONES.md) | 阶段/里程碑、交付物、准出指标（含 M7–M10 生产化） |
