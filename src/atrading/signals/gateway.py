@@ -13,11 +13,12 @@ import hashlib
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
+from atrading.core.errors import SignalError
 from atrading.signals.budget import CostBudget
 from atrading.signals.llm_client import LLMClient, LLMResponse
 
 
-class GatewayError(RuntimeError):
+class GatewayError(SignalError):
     """所有 provider（primary + fallbacks）均失败。"""
 
 

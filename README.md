@@ -8,7 +8,8 @@
 ![Pydantic v2](https://img.shields.io/badge/models-pydantic%20v2-E92063?logo=pydantic&logoColor=white)
 ![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)
 ![mypy](https://img.shields.io/badge/types-mypy%20strict-2A6DB2)
-![pytest](https://img.shields.io/badge/tests-197%20passed-3EA639?logo=pytest&logoColor=white)
+![pytest](https://img.shields.io/badge/tests-226%20passed-3EA639?logo=pytest&logoColor=white)
+![coverage](https://img.shields.io/badge/coverage-92%25-3EA639)
 [![CI](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml/badge.svg)](https://github.com/AndyUneducated/agentic-trading/actions/workflows/ci.yml)
 ![Trading mode](https://img.shields.io/badge/trading__mode-paper%20(default)-orange)
 ![Status](https://img.shields.io/badge/status-research%20%2F%20offline--first-blue)
@@ -50,7 +51,7 @@
 | **标的** | 美股、ETF、加密货币（先聚焦少量高流动性标的）。 |
 | **资金路径** | 回测 → 模拟盘验证 → 达标后小额实盘 → 逐步放量。 |
 | **架构红线** | 运行时 LLM 只输出信号；决策与执行只在确定性层（见 [ADR-0001](docs/decisions/0001-llm-positioning-hybrid.md)）。 |
-| **当前状态** | M1–M10 **离线内核已全部落地并全绿**（197 测试）；**离线优先**：真实 LLM / 数据 / 券商 / Nautilus / 合规签署等真实基建收敛到"人类开关"后（见 [ADR-0009](docs/decisions/0009-offline-first-productionization.md)）。 |
+| **当前状态** | M1–M10 **离线内核已全部落地并全绿**（226 测试，覆盖率 92%）；已与 [`paper-trading-platform`](../paper-trading-platform)（模拟券商/Agent 测试器）端到端集成验证（见 [集成规格](docs/PAPER-TRADING-INTEGRATION.md)）。**离线优先**：真实 LLM / 数据 / 券商 / Nautilus / 合规签署等真实基建收敛到"人类开关"后（见 [ADR-0009](docs/decisions/0009-offline-first-productionization.md)、[ADR-0010](docs/decisions/0010-architecture-hardening.md)）。 |
 | **核心理念** | 评测即测试（无评测不合并）、规格先行、单变量实验、防过拟合为一等公民、回测-实盘一致。 |
 
 **与"让 LLM 自主交易"的关键区别**：业界 2026 的共识是 LLM 太慢（ms–s 级），须"hot path（确定性执行）/ AI path（LLM 异步生成信号）"解耦——我们的混合红线正是这一范式。
@@ -232,14 +233,16 @@ flowchart TD
 
 | 包 | 职责 | 关键类型 |
 | --- | --- | --- |
-| `core/` | 领域契约（contracts-first） | `Bar` `Signal` `Order` `Fill` `PortfolioState` · `DecisionPolicy` `Broker` `RiskGate` 等 Protocol · `SignalSchemaV1` `EdgeCriteria` `RunManifest` |
-| `config/` | 类型化配置与安全护栏 | `Settings`（`trading_mode`/`kill_switch`/`can_trade`） |
-| `data/` | PIT 数据层 | `PITStore`(parquet, `as_of` 过滤) · `InMemoryDataSource` · `check_bars` |
+| `core/` | 领域契约（contracts-first） | `Bar` `Signal` `Order` `Fill` `PortfolioState` `OrderStatus` · `DecisionPolicy` `Broker` `RiskGate` `Clock` 等 Protocol · **`errors`**(`AtradingError` 层次) · **`RiskLimits`** · `SignalSchemaV1` `EdgeCriteria` `RunManifest` |
+| `config/` | 类型化配置与安全护栏 | `Settings`（`trading_mode`/`kill_switch`/`can_trade`，来自 `.env`）· **`RunConfig`**(加载 `configs/paper.yaml`：策略/日志/**风控限额**) |
+| `clock.py` | 可注入时钟（回测=模拟钟, 实盘=真实钟） | **`SystemClock`** · **`ManualClock`** |
+| `app.py` / `registry.py` | **组合根** + 策略注册表 | **`build_backtest`** · **`build_paper_loop`** · **`build_policy`**/`register_policy` |
+| `data/` | PIT 数据层 | `PITStore`(parquet, `as_of` 过滤, schema 版本) · `InMemoryDataSource` · `check_bars` |
 | `backtest/` | 确定性参考回测引擎 | `BacktestRunner` · `CostModel` · 基线策略 |
 | `signals/` | LLM 信号层（离线优先）+ M7 真实接入骨架 | `LLMClient`+`KeywordLLMClient` · `SentimentExtractor` · `SignalCache`/`SignalLog` · `LLMSignalSource` · **`AIGateway`**(重试/降级/缓存/预算熔断) · **`CostBudget`** · **`PriorityThrottler`** · **`InMemoryNewsSource`**(PIT) · **`OpenAICompatibleClient`** |
-| `decision/` | 规则/量化决策层 | `RulesDecisionPolicy` · `PassthroughSizer` · `VolatilityTargetSizer` |
-| `risk/` | 预交易风控门 | `PreTradeRiskGate` · `RiskLimits` |
-| `execution/` | 执行闭环 + M8 执行真实性 | `TradingLoop` · `weights_to_orders` · `SimulatedBroker` · `Reconciler` · `FileStateStore` · **`RealisticBroker`**(延迟/部分成交) · **`CommissionModel`**/**`SlippageModel`** |
+| `decision/` | 规则/量化决策层 | `RulesDecisionPolicy`(信号时效衰减) · `PassthroughSizer` · `VolatilityTargetSizer` |
+| `risk/` | 预交易风控门 | `PreTradeRiskGate` · `RiskLimits`(配置化) |
+| `execution/` | 执行闭环 + M8 执行真实性 | `TradingLoop`(注入 `Clock`/`Tracer`, `advance` 撮合) · `weights_to_orders`(卖单优先 + 买力约束) · `SimulatedBroker` · `Reconciler` · `FileStateStore` · **`SQLiteStateStore`**(多策略命名空间) · **`RealisticBroker`**(延迟/部分成交) · **`CommissionModel`**/**`SlippageModel`** |
 | `eval/` | 分层评测 + 防过拟合 | `metrics` · `validation` · `overfit` · `baselines` · `scorecard`(`GoLiveScorecard`) · `report` · `signal_eval` |
 | `experiments/` | 单变量实验 + 记账 | `ExperimentSpec`(单变量强制) · `run_experiment` · `ExperimentRegistry`(n_trials) |
 | `monitoring/` | regime/drift + M9 可观测性 | `RegimeMonitor` · `compute_drift` · `MetricsRegistry` · **`AlertRule`/`evaluate_alerts`** · **`Tracer`** |
@@ -253,7 +256,9 @@ flowchart TD
 | --- | --- | --- |
 | `atrading_decision_seconds` | Histogram | 每决策周期耗时 |
 | `atrading_steps_total{result}` | Counter | 循环步数（ok/degraded） |
+| `atrading_step_errors_total{error_type}` | Counter | 降级步的异常类型（`AtradingError` 子类等） |
 | `atrading_orders_submitted_total` | Counter | 提交订单数 |
+| `atrading_open_orders` | Gauge | 当前未成交挂单数（高保真 broker） |
 | `atrading_risk_denials_total{reason}` | Counter | 风控拒单（按原因） |
 | `atrading_reconcile_mismatch` | Gauge | 对账不一致数 |
 | `atrading_llm_cost_usd_total{model}` · `atrading_llm_tokens_total{kind}` | Counter | LLM 成本 / token |
@@ -349,7 +354,8 @@ uv sync --dev
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run mypy
-uv run pytest            # 197 passed
+uv run pytest            # 226 passed
+uv run pytest --cov=atrading --cov-report=term-missing  # 覆盖率（当前 ~92%）
 
 # 仅跑 golden 已知答案回归
 uv run pytest -m golden
@@ -368,14 +374,16 @@ cp .env.example .env
 | --- | --- |
 | `atrading version` | 打印版本 |
 | `atrading gate [--json]` | 打印/校验安全护栏姿态（`trading_mode` / `kill_switch` / `can_trade`） |
-| `atrading backtest [--config <yaml>] [--days N] [--seed S] [--json]` | 在合成/配置行情上跑确定性回测并打印指标 |
+| `atrading backtest [--config <yaml>] [--policy <name>] [--days N] [--seed S] [--json]` | 在合成/配置行情上跑确定性回测并打印指标（`--policy` 见策略注册表：`equal_weight`/`momentum`/`buy_hold`/`rules`） |
+| `atrading paper [--config configs/paper.yaml] [--days N] [--seed S] [--json]` | 从 `RunConfig` 经**组合根**装配完整模拟盘闭环（信号→决策→**配置化风控**→执行→对账），离线跑 |
 
 ```bash
 uv run atrading gate
-uv run atrading backtest --config configs/strategies/mvp.yaml --days 180 --json
+uv run atrading backtest --config configs/strategies/mvp.yaml --policy momentum --days 180 --json
+uv run atrading paper --config configs/paper.yaml --days 30 --json
 ```
 
-> CLI 只做"编排 + 展示"，复用 `src` 内确定性组件；合成数据仅供烟囱测试，**非真实 alpha 证据**。
+> CLI 只做"编排 + 展示"，复用 `src` 内确定性组件（回测/模拟盘均经 `app.py` 组合根按配置装配）；合成数据仅供烟囱测试，**非真实 alpha 证据**。
 
 ### 可运行示例（`examples/`）
 
@@ -566,7 +574,30 @@ with tracer.span("loop_step"), tracer.span("decide"):
 print([(s.name, s.parent_id) for s in tracer.finished()])      # 子 span 链接到父 span
 ```
 
-> **每个范例都有对应单测**：13.1→`test_m7_pipeline.py`、13.2→`test_trading_loop.py`、13.3→`test_signal_eval.py`、13.4→`test_validation.py`+`test_overfit.py`、13.5→`test_golive.py`+`test_ramp.py`+`test_audit.py`、13.6→`test_alerts.py`+`test_tracing.py`。
+### 13.7 组合根：从配置装配完整闭环（config 驱动 + 配置化风控 + SQLite 状态）
+
+安全关键的**风控限额来自 `configs/paper.yaml`**（纳入版本控制，非硬编码）；`app.py` 组合根按配置装配决策/风控/执行，`atrading paper` 即调用此路径。
+
+```python
+from atrading.app import build_paper_loop
+from atrading.config import RunConfig, Settings
+from atrading.data import InMemoryDataSource
+from atrading.execution import SQLiteStateStore
+
+run_config = RunConfig.from_yaml("configs/paper.yaml")         # 策略路径 + 日志 + 风控限额
+strategy = run_config.load_strategy()
+prices: dict[str, float] = {}
+loop = build_paper_loop(                                       # 组合根：一处装配、注册表选策略
+    run_config=run_config, settings=Settings(),
+    data=InMemoryDataSource(bars),                            # bars 见 §13.2
+    prices=prices,
+    state_store=SQLiteStateStore("/tmp/atrading.db", namespace=strategy.name),  # 多策略命名空间
+)
+print(run_config.risk.max_notional_per_order)                 # 20000（来自 YAML，可版本化审计）
+# reports = loop.run(timestamps)  # 与 §13.2 相同的 step/tick 闭环
+```
+
+> **每个范例都有对应单测**：13.1→`test_m7_pipeline.py`、13.2→`test_trading_loop.py`、13.3→`test_signal_eval.py`、13.4→`test_validation.py`+`test_overfit.py`、13.5→`test_golive.py`+`test_ramp.py`+`test_audit.py`、13.6→`test_alerts.py`+`test_tracing.py`、13.7→`tests/integration/test_app.py`+`test_run_config.py`。
 
 ---
 
@@ -587,8 +618,9 @@ print([(s.name, s.parent_id) for s in tracer.finished()])      # 子 span 链接
 ├── examples/                  # 独立可跑的离线示例（对应 README §13）
 ├── src/atrading/              # 源码（core/config/data/backtest/signals/decision/
 │                              #        risk/execution/eval/experiments/monitoring/
-│                              #        governance）+ cli.py · logging_config.py
-├── tests/                     # unit/ + golden/
+│                              #        governance）+ app.py · registry.py · clock.py
+│                              #        · cli.py · logging_config.py
+├── tests/                     # unit/ + integration/ + golden/
 └── docs/                      # 章程/里程碑/规格/决策/实验/技术方案（+ assets/）
 ```
 
@@ -605,9 +637,10 @@ print([(s.name, s.parent_id) for s in tracer.finished()])      # 子 span 链接
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 系统架构与关键流程图（模块依赖 / 事件流 / 数据生命周期） |
 | [docs/MILESTONES.md](docs/MILESTONES.md) | 阶段/里程碑、交付物、准出指标（含 M7–M10 生产化） |
 | [docs/PRODUCTION-READINESS.md](docs/PRODUCTION-READINESS.md) | 生产级差距矩阵（对标 Nautilus/Lean/vectorbt 等）与路线依据 |
+| [docs/PAPER-TRADING-INTEGRATION.md](docs/PAPER-TRADING-INTEGRATION.md) | 与 paper-trading-platform（模拟券商/Agent 测试器）集成规格、缺陷修复与差距矩阵 |
 | [docs/LANDSCAPE.md](docs/LANDSCAPE.md) | 竞品与生产实践对标、差距分析与取舍 |
 | [docs/tech-specs/](docs/tech-specs/) | 各里程碑详细技术方案（面向 AI-coding） |
 | [docs/specs/](docs/specs/) | 各模块规格（strategy / backtest-eval / llm-signal） |
-| [docs/decisions/](docs/decisions/) | 架构决策记录（ADR-0001 … 0009） |
+| [docs/decisions/](docs/decisions/) | 架构决策记录（ADR-0001 … 0011） |
 | [docs/experiments/](docs/experiments/) | 单变量实验日志 |
 | [docs/GLOSSARY.md](docs/GLOSSARY.md) | 交易术语与数据字典 |

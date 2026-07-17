@@ -41,6 +41,9 @@ class SimulatedBroker:
             )
         )
 
+    def advance(self, now: datetime) -> list[Fill]:
+        return []  # 即时成交模型：submit 时已成交，无需推进撮合
+
     def get_positions(self) -> PortfolioState:
         invested = sum(
             shares * self._prices.get(symbol, 0.0) for symbol, shares in self._positions.items()

@@ -22,8 +22,8 @@ jobs:
         run: uv run ruff format --check .
       - name: Type check (mypy)
         run: uv run mypy src
-      - name: Tests (pytest)
-        run: uv run pytest -m "not slow"
+      - name: Tests (pytest + coverage)
+        run: uv run pytest -m "not slow" --cov=atrading --cov-report=term-missing --cov-fail-under=85
 
   eval-smoke:
     runs-on: ubuntu-latest

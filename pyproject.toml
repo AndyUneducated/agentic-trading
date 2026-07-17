@@ -28,6 +28,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "pytest>=8",
+    "pytest-cov>=5",
     "types-pyyaml>=6",
 ]
 
@@ -61,4 +62,17 @@ testpaths = ["tests"]
 markers = [
     "golden: 已知答案回归用例",
     "slow: 慢测试",
+]
+
+[tool.coverage.run]
+source = ["atrading"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+    "if __name__ == .__main__.:",
 ]

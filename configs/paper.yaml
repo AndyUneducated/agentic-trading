@@ -1,11 +1,18 @@
-# 模拟盘（paper）运行时配置占位。
-# 运行模式与密钥来自 .env（见 .env.example）；此文件承载非密钥的运行参数。
-# 策略配置（标的池/频率/风控限额）将在 M2/M5 引入 configs/strategies/*.yaml。
+# 模拟盘（paper）运行配置。
+# 运行模式（trading_mode / kill_switch）与密钥来自 .env（Settings 权威，见 .env.example）；
+# 本文件只承载**非密钥**运行参数：策略、日志、以及安全关键的风控限额。
 
-runtime:
-  trading_mode: paper        # 与 .env 一致，务必保持 paper
-  kill_switch: false
+strategy: strategies/mvp.yaml   # 相对本文件目录解析
 
 logging:
   level: INFO
   format: json
+
+# 预交易风控限额（安全关键，纳入版本控制）。金额单位为名义美元；
+# daily_loss_limit 为占日初权益的比例（0.03 = 3%）。
+risk:
+  max_position_per_name: 25000
+  max_gross_exposure: 100000
+  max_notional_per_order: 20000
+  max_orders_per_interval: 10
+  daily_loss_limit: 0.03

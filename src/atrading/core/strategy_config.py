@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
+
+from atrading.core.errors import ConfigError
 
 
 def _default_benchmarks() -> list[str]:
@@ -28,6 +30,8 @@ class StrategyConfig(BaseModel):
     allow_short: bool = False
     max_gross_exposure: float = Field(default=1.0, gt=0)
     max_weight_per_name: float = Field(default=0.2, gt=0, le=1)
+    # 信号时效：超过该天数的旧信号视为过期、不参与决策；None=不设时效（默认）。
+    max_signal_age_days: int | None = Field(default=None, gt=0)
     benchmarks: list[str] = Field(default_factory=_default_benchmarks)
     primary_metrics: list[str] = Field(default_factory=_default_metrics)
 
@@ -43,5 +47,13 @@ class StrategyConfig(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> StrategyConfig:
-        data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-        return cls.model_validate(data)
+        try:
+            data: Any = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError) as error:
+            msg = f"读取策略配置失败: {path}: {error}"
+            raise ConfigError(msg) from error
+        try:
+            return cls.model_validate(data)
+        except Exception as error:  # noqa: BLE001 — 统一转换为 ConfigError
+            msg = f"策略配置非法: {path}: {error}"
+            raise ConfigError(msg) from error

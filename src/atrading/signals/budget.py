@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+from atrading.core.errors import SignalError
 
-class BudgetExceededError(RuntimeError):
+
+class BudgetExceededError(SignalError):
     """预算耗尽：调用方应安全降级（缓存/便宜后端/暂停信号），不得继续真实调用。"""
 
 

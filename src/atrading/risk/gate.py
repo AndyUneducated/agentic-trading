@@ -7,19 +7,12 @@ kill switch / 交易模式 / 日亏熔断为全局闸门；名义/仓位/敞口/
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
-
 from atrading.config.settings import Settings
 from atrading.core.interfaces import RiskDecision
+from atrading.core.risk_limits import RiskLimits
 from atrading.core.types import Order, PortfolioState
 
-
-class RiskLimits(BaseModel):
-    max_position_per_name: float = Field(gt=0)  # 单标的名义上限（金额）
-    max_gross_exposure: float = Field(gt=0)  # 总名义敞口上限（金额）
-    max_notional_per_order: float = Field(gt=0)  # 单笔名义上限（金额）
-    max_orders_per_interval: int = Field(gt=0)  # 单个决策周期最多下单数
-    daily_loss_limit: float = Field(gt=0, le=1)  # 日内亏损熔断（占日初权益比例）
+__all__ = ["PreTradeRiskGate", "RiskLimits"]
 
 
 class PreTradeRiskGate:

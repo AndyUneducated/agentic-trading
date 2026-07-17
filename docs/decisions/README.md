@@ -19,3 +19,5 @@
 | [0007](0007-experimentation-and-monitoring.md) | 实验纪律与 regime/drift 监控方法（单变量强制/n_trials/统计漂移/OSS 离线基线） | Accepted |
 | [0008](0008-production-roadmap-and-oss-adoption.md) | 生产化路线排序（先真实 alpha 证据）与开源引擎采用（Nautilus/vectorbt） | Accepted |
 | [0009](0009-offline-first-productionization.md) | M7–M10 离线优先落地（同协议骨架，延迟重依赖与真实联网） | Accepted |
+| [0010](0010-architecture-hardening.md) | 架构收敛与工程硬化（错误类型/配置化/时钟/组合根/追踪/持久化） | Accepted |
+| [0011](0011-execution-ordering-and-buying-power.md) | 执行排序与买力约束（卖单优先 + 买单缩量，PTP 集成暴露） | Accepted |

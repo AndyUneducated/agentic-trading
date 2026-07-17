@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
+from atrading.core.errors import DataError
 from atrading.core.types import Bar
 from atrading.data import PITStore
+from atrading.data.store import SCHEMA_VERSION
 
 
 def _bar(symbol: str, day: int, close: float) -> Bar:
@@ -50,6 +55,30 @@ def test_incremental_write_appends_and_upserts(tmp_path: Path) -> None:
         as_of=datetime(2026, 1, 3, tzinfo=UTC),
     )
     assert [(b.ts.day, b.close) for b in bars] == [(1, 100.0), (2, 111.0), (3, 121.0)]
+
+
+def test_schema_version_stamped_on_write(tmp_path: Path) -> None:
+    store = PITStore(tmp_path)
+    assert store.schema_version() is None  # 无数据
+    store.write_bars([_bar("A", 1, 100.0)], "daily")
+    assert store.schema_version() == SCHEMA_VERSION
+
+
+def test_incompatible_schema_version_raises(tmp_path: Path) -> None:
+    store = PITStore(tmp_path)
+    store.write_bars([_bar("A", 1, 100.0)], "daily")
+    # 模拟旧/不兼容版本落盘
+    (tmp_path / "bars" / "_schema.json").write_text(
+        json.dumps({"schema_version": SCHEMA_VERSION + 1}), encoding="utf-8"
+    )
+    with pytest.raises(DataError):
+        store.read_bars(
+            ["A"],
+            datetime(2026, 1, 1, tzinfo=UTC),
+            datetime(2026, 1, 3, tzinfo=UTC),
+            "daily",
+            as_of=datetime(2026, 1, 3, tzinfo=UTC),
+        )
 
 
 def test_read_missing_symbol_returns_empty(tmp_path: Path) -> None:

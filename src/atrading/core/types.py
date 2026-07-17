@@ -7,9 +7,21 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, Field
+
+
+class OrderStatus(StrEnum):
+    """订单生命周期状态。即时成交的模拟 broker 从 new 直达 filled；高保真/真实 broker
+    会经过 partially_filled，或以 rejected/canceled 终止。"""
+
+    new = "new"
+    partially_filled = "partially_filled"
+    filled = "filled"
+    rejected = "rejected"
+    canceled = "canceled"
 
 
 class Bar(BaseModel):

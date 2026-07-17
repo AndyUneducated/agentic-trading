@@ -15,8 +15,9 @@ uv run python examples/01_offline_backtest.py
 | `04_signal_eval.py` | 信号质量评测（IC / 显著性 / 保守偏差） | `test_signal_eval.py` |
 | `05_anti_overfitting.py` | walk-forward + DSR + PBO + 留出集守卫 | `test_validation.py` · `test_overfit.py` |
 | `06_go_live_governance.py` | 上线闸门 + 放量/回滚 + 防篡改审计 | `test_golive.py` · `test_ramp.py` · `test_audit.py` |
+| `07_composition_root.py` | 组合根：config 驱动装配 + 配置化风控 + SQLite 状态 | `tests/integration/test_app.py` · `test_run_config.py` |
 | `plot_equity.py` | 生成权益曲线图（需 `--extra viz`） | — |
 
 > 合成/示例数据仅用于演示，**不构成任何真实 alpha 证据**。真实数据实证见 `docs/experiments/`。
 >
-> 也可用 CLI：`uv run atrading backtest --days 180`、`uv run atrading gate`。
+> 也可用 CLI：`uv run atrading backtest --days 180`、`uv run atrading paper --config configs/paper.yaml`、`uv run atrading gate`。

@@ -60,9 +60,13 @@ class RealisticBroker:
         self._pending.append(_Pending(order, self._step))
 
     def advance(
-        self, *, now: datetime | None = None, volumes: dict[str, float] | None = None
+        self, now: datetime | None = None, volumes: dict[str, float] | None = None
     ) -> list[Fill]:
-        """推进一个撮合步：按延迟门控 + 参与率上限对挂单做（部分）成交。返回本步新成交。"""
+        """推进一个撮合步：按延迟门控 + 参与率上限对挂单做（部分）成交。返回本步新成交。
+
+        `now` 位置或关键字均可（与 core.Broker 协议 `advance(now)` 兼容）；`volumes`
+        为可选的当期成交量（用于参与率上限），主循环未提供时退化为无量约束。
+        """
         now = now or datetime.now(tz=UTC)
         self._step += 1
         new_fills: list[Fill] = []

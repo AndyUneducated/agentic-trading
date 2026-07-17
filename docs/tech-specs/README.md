@@ -20,7 +20,7 @@
 | [M9-observability-and-ops.md](M9-observability-and-ops.md) | M9 | 指标/tracing/告警 + 容器化 + 密钥托管 + incident playbook（生产化） |
 | [M10-compliance-and-go-live.md](M10-compliance-and-go-live.md) | M10 | 合规要件 + 上线闸门记分卡 + 小额实盘/放量/回滚（生产化） |
 
-> **状态**：M1–M10 **离线内核均已实现并全绿**（197 测试，离线优先）；示例代码与实际实现基本一致。M7–M10 的"实现状态"小节标注了**已落地的离线部分**与**待真实基建的部分**（真实 LLM/数据/券商、Nautilus、Grafana/OTLP/密钥托管、合规与实盘签署），后者收敛到"人类开关"后（见 [ADR-0009](../decisions/0009-offline-first-productionization.md)、[PRODUCTION-READINESS.md](../PRODUCTION-READINESS.md)）。
+> **状态**：M1–M10 **离线内核均已实现并全绿**（226 测试，离线优先）；示例代码与实际实现基本一致。M7–M10 的"实现状态"小节标注了**已落地的离线部分**与**待真实基建的部分**（真实 LLM/数据/券商、Nautilus、Grafana/OTLP/密钥托管、合规与实盘签署），后者收敛到"人类开关"后（见 [ADR-0009](../decisions/0009-offline-first-productionization.md)、[PRODUCTION-READINESS.md](../PRODUCTION-READINESS.md)）。
 
 ## 1. 技术栈（见 ADR-0004，Accepted）
 

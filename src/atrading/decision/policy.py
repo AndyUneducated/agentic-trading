@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from atrading.core.interfaces import DecisionContext
 from atrading.core.strategy_config import StrategyConfig
@@ -38,10 +38,16 @@ class RulesDecisionPolicy:
 
     def decide(self, ctx: DecisionContext) -> TargetWeights:
         universe = set(self._config.universe)
+        # 信号时效：丢弃早于 as_of - max_signal_age_days 的过期信号（防用陈旧信号交易）。
+        min_as_of: datetime | None = None
+        if self._config.max_signal_age_days is not None:
+            min_as_of = ctx.as_of - timedelta(days=self._config.max_signal_age_days)
         # symbol -> (as_of, sentiment, confidence)；按 as_of 取最新，不依赖信号列表顺序。
         latest: dict[str, tuple[datetime, float, float]] = {}
         for signal in ctx.signals:
             if signal.name != "sentiment" or signal.symbol not in universe:
+                continue
+            if min_as_of is not None and signal.as_of < min_as_of:
                 continue
             prior = latest.get(signal.symbol)
             if prior is None or signal.as_of >= prior[0]:
