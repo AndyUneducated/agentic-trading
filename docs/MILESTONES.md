@@ -295,6 +295,11 @@ flowchart LR
   - [ ] paper 连续运行 ≥ N 天无未捕获异常；重连/部分成交/拒单均有处理与测试。
   - [ ] 无订单绕过风控（沿用 M5 不变量）；对账检出注入不一致。
 - **Eval 增量**：真实成本/滑点下的策略级评测；live-vs-backtest drift 实测。
+- **实现状态（离线执行真实性已落地）**：
+  - ✅ `execution/costs.py`（`CommissionModel`/`SlippageModel`，回测/实盘共用的纯函数成本模型）。
+  - ✅ `execution/realistic_broker.py`（`RealisticBroker` 实现 `core.Broker`：延迟 + 部分成交 + 费用 + 滑点 + 幂等）。
+  - ✅ 回测-实盘 parity：无摩擦下 `RealisticBroker == SimulatedBroker`，加摩擦后 drift 有界且完全归因（`test_execution_parity.py`）；共 14 项 M8 单测。
+  - 🔜 待真实基建：采用 Nautilus（重依赖）+ 真实 paper 券商（Alpaca/CCXT testnet）联网适配。
 - **依赖**：M5、M7。 → 技术方案 [tech-specs/M8-production-execution-engine.md](tech-specs/M8-production-execution-engine.md)。
 
 ## M9 · 可观测性与运维就绪（可与 M8 并行）
